@@ -264,7 +264,7 @@ if mushrif_file and admin_file:
         
         if not teacher_all_errors_df.empty:
             # تطبيق التلوين الاحترافي على عمود درجة الخطورة
-            styled_errors_df = teacher_all_errors_df.style.applymap(style_severity, subset=["🔥 درجة الخطورة"])
+            styled_errors_df = teacher_all_errors_df.style.map(style_severity, subset=["🔥 درجة الخطورة"])
             st.dataframe(styled_errors_df, use_container_width=True, height=400)
             
             # إحصائيات سريعة للأخطاء
