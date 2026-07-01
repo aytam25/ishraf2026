@@ -430,8 +430,8 @@ if mushrif_file and admin_file:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-    # ============================================================
-    # 🎛️ [القسم المطلوب بالأسفل] منصة التصفية التفاعلية الذكية المحدثة بالأعمدة الجديدة
+# ============================================================
+    # 🎛️ [منصة التصفية بالأسفل] منصة التصفية التفاعلية الذكية المحدثة بالأعمدة الجديدة والواتساب المجمع
     # ============================================================
     st.markdown("---")
     st.markdown('<p class="section-title">⚙️ خيارات العرض والتصفية الحية (حسب المشرف والمشاكل)</p>', unsafe_allow_html=True)
@@ -449,6 +449,23 @@ if mushrif_file and admin_file:
             
         selected_sup = st.selectbox("اختر اسم المشرف:", options=supervisor_options, key="filter_sup_key")
 
+    # 📱 [ميزة مضافة] ميزة التنبيه المجمع الذكي للمشرف المحدد
+    if selected_sup != "الكل" and not teacher_all_errors_df.empty:
+        sup_errors = teacher_all_errors_df[teacher_all_errors_df["المشرف المسؤول"] == selected_sup]
+        if not sup_errors.empty:
+            st.markdown(f"##### 📱 التنبيه المجمع والذكي للمشرف: ({selected_sup})")
+            msg_lines = [f"السلام عليكم أستاذ {selected_sup}، يرجى التكرم بتعديل بيانات المعلمين التالية في ملف التقييم الخاص بك لوجود بعض الملاحظات:"]
+            for idx, row in enumerate(sup_errors.to_dict(orient='records'), 1):
+                msg_lines.append(f"{idx}- {row['اسم المعلم (من الإدارة)']} ⬅️ ({row['🚨 طبيعة الخطأ']})")
+            msg_lines.append("شاكرين ومقدرين حسن تعاونكم وجهودكم المبذولة.")
+            
+            full_msg = "\n".join(msg_lines)
+            encoded_msg = urllib.parse.quote(full_msg)
+            whatsapp_url = f"https://wa.me/?text={encoded_msg}"
+            
+            st.link_button(f"📱 إرسال كشف الأخطاء المجمع عبر واتساب ({len(sup_errors)} ملاحظات)", whatsapp_url, use_container_width=True)
+            st.markdown("---")
+
     # بناء الجدول المصفّح ديناميكياً
     if show_problems_only:
         filtered_df = teacher_all_errors_df.copy() if not teacher_all_errors_df.empty else pd.DataFrame()
@@ -460,7 +477,7 @@ if mushrif_file and admin_file:
             filtered_df = filtered_df[filtered_df["المشرف المسؤول"].str.contains(selected_sup, na=False)]
 
     if not filtered_df.empty:
-        # تطبيق الترتيب الصارم المطلوب: المشرف ⬅️ الأسماء جنباً إلى جنب ⬅️ الهويات جنباً إلى جنب
+        # التراتبية الصارمة: المشرف -> اسم الإدارة -> اسم المشرف -> هوية HR -> هوية المشرف
         desired_cols = ["المشرف المسؤول", "اسم المعلم (من الإدارة)", "الاسم المدخل (من المشرف)", "رقم هوية (HR)", "رقم هوية (المشرف)", "التقييم"]
         existing_cols = [c for c in desired_cols if c in filtered_df.columns]
         remaining_cols = [c for c in filtered_df.columns if c not in existing_cols]
@@ -489,7 +506,6 @@ if mushrif_file and admin_file:
             key="download_filtered_btn"
         )
         
-        # تجهيز العرض التفاعلي بقلب المصفوفة ليدعم الـ RTL في السحب الجانبي للجدول
         col_order_filt = list(filtered_df.columns)[::-1]
         col_config_filt = {col: st.column_config.Column(alignment="right") for col in filtered_df.columns}
         
