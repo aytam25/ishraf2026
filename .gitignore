@@ -1,0 +1,26 @@
+# تجاهل البيئة الافتراضية
+venv/
+env/
+.env/
+
+# تجاهل ملفات Python المؤقتة
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# تجاهل ملفات IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# تجاهل ملفات النظام
+.DS_Store
+Thumbs.db
+
+# تجاهل الملفات المؤقتة
+*.log
+*.tmp
+*.xlsx
+*.xls
