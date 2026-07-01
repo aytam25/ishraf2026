@@ -165,7 +165,7 @@ if mushrif_file and admin_file:
                 supervisor_map[id_num]["المشرف"].append(row["اسم المشرف"])
                 supervisor_map[id_num]["الاسم_المدخل"].append(row["اسم المعلم"])
 
-        st.write("🧠 تشغيل خوارزمية المطابقة الذكية وتحليل درجات الخطورة...")
+st.write("🧠 تشغيل خوارزمية المطابقة الذكية وتحليل درجات الخطورة...")
         
         results, suggestions, not_found, error_details = [], [], [], []
         teacher_all_errors = []
@@ -190,10 +190,11 @@ if mushrif_file and admin_file:
                         name_sim = similarity(admin_name, ent_name)
                         
                         teacher_all_errors.append({
-                            "اسم المعلم (من الإدارة)": admin_name,
-                            "رقم الهوية": admin_id,
-                            "الاسم المدخل (من المشرف)": ent_name,
                             "المشرف المسؤول": sup,
+                            "اسم المعلم (من الإدارة)": admin_name,
+                            "الاسم المدخل (من المشرف)": ent_name,
+                            "رقم هوية (HR)": admin_id,
+                            "رقم هوية (المشرف)": admin_id,  # متطابقة برقم الهوية ولكن الاسم مختلف
                             "التقييم": score,
                             "📊 تشابه الاسم": f"{name_sim:.0%}",
                             "🚨 طبيعة الخطأ": "خطأ مطبعي في الاسم فقط",
@@ -206,11 +207,12 @@ if mushrif_file and admin_file:
                         })
                 
                 results.append({
-                    "اسم المعلم (من الإدارة)": admin_name,
-                    "رقم الهوية": admin_id,
-                    "التقييم": score,
                     "المشرف المسؤول": " / ".join(data["المشرف"]),
+                    "اسم المعلم (من الإدارة)": admin_name,
                     "الاسم المدخل (من المشرف)": " / ".join(data["الاسم_المدخل"]),
+                    "رقم هوية (HR)": admin_id,
+                    "رقم هوية (المشرف)": admin_id,
+                    "التقييم": score,
                     "📌 الحالة": " | ".join(statuses)
                 })
             
@@ -245,10 +247,11 @@ if mushrif_file and admin_file:
                         error_nature = "خطأ مركب (الاسم والهوية معاً)"
                     
                     teacher_all_errors.append({
-                        "اسم المعلم (من الإدارة)": admin_name,
-                        "رقم الهوية": admin_id,
-                        "الاسم المدخل (من المشرف)": best_match_name,
                         "المشرف المسؤول": sup_person,
+                        "اسم المعلم (من الإدارة)": admin_name,
+                        "الاسم المدخل (من المشرف)": best_match_name,
+                        "رقم هوية (HR)": admin_id,
+                        "رقم هوية (المشرف)": best_match_id, # هنا الهوية تختلف عن الـ HR
                         "التقييم": score,
                         "📊 تشابه الاسم": f"{best_name_sim:.0%}",
                         "🚨 طبيعة الخطأ": error_nature,
@@ -256,11 +259,11 @@ if mushrif_file and admin_file:
                     })
                     
                     suggestions.append({
-                        "اسم المعلم (من الإدارة)": admin_name,
-                        "رقم الهوية الصحيح": admin_id,
-                        "الرقم الخاطئ عند المشرف": best_match_id,
-                        "الاسم المدخل (من المشرف)": best_match_name,
                         "المشرف المسؤول": sup_person,
+                        "اسم المعلم (من الإدارة)": admin_name,
+                        "الاسم المدخل (من المشرف)": best_match_name,
+                        "رقم هوية (HR)": admin_id,
+                        "رقم الهوية عند المشرف": best_match_id,
                         "التقييم": score
                     })
                 else:
@@ -297,7 +300,6 @@ if mushrif_file and admin_file:
             return "background-color: #e0f2fe; color: #075985; border: 1px solid #bae6fd;"
         return ""
 
-
     # ============================================================
     # 5. عرض الإحصائيات الذكية والمؤشرات الحيوية
     # ============================================================
@@ -323,6 +325,9 @@ if mushrif_file and admin_file:
     with tab1:
         st.subheader("📊 بيان المعلمين المدمجة تقييماتهم كاملاً")
         if not results_df.empty:
+            # إعادة الترتيب هنا أيضاً للاتساق
+            cols_order_base = ["المشرف المسؤول", "اسم المعلم (من الإدارة)", "الاسم المدخل (من المشرف)", "رقم هوية (HR)", "رقم هوية (المشرف)", "التقييم", "📌 الحالة"]
+            results_df = results_df[[c for c in cols_order_base if c in results_df.columns]]
             col_order = list(results_df.columns)[::-1]
             col_config = {col: st.column_config.Column(alignment="right") for col in results_df.columns}
             st.dataframe(results_df, column_order=col_order, column_config=col_config, use_container_width=True, height=400, hide_index=True)
@@ -342,6 +347,9 @@ if mushrif_file and admin_file:
                 whatsapp_links.append(f"https://wa.me/?text={encoded_msg}")
             
             teacher_all_errors_df["💬 تنبيه الواتساب"] = whatsapp_links
+            
+            cols_order_err = ["المشرف المسؤول", "اسم المعلم (من الإدارة)", "الاسم المدخل (من المشرف)", "رقم هوية (HR)", "رقم هوية (المشرف)", "التقييم", "📊 تشابه الاسم", "🚨 طبيعة الخطأ", "🔥 درجة الخطورة", "💬 تنبيه الواتساب"]
+            teacher_all_errors_df = teacher_all_errors_df[[c for c in cols_order_err if c in teacher_all_errors_df.columns]]
             
             col_order = list(teacher_all_errors_df.columns)[::-1]
             col_config = {col: st.column_config.Column(alignment="right") for col in teacher_all_errors_df.columns}
@@ -423,7 +431,7 @@ if mushrif_file and admin_file:
         )
 
     # ============================================================
-    # 🎛️ [مكان جديد] منصة التصفية التفاعلية الذكية في أسفل الصفحة
+    # 🎛️ [القسم المطلوب بالأسفل] منصة التصفية التفاعلية الذكية المحدثة بالأعمدة الجديدة
     # ============================================================
     st.markdown("---")
     st.markdown('<p class="section-title">⚙️ خيارات العرض والتصفية الحية (حسب المشرف والمشاكل)</p>', unsafe_allow_html=True)
@@ -452,8 +460,8 @@ if mushrif_file and admin_file:
             filtered_df = filtered_df[filtered_df["المشرف المسؤول"].str.contains(selected_sup, na=False)]
 
     if not filtered_df.empty:
-        # ترتيب الأعمدة لتطابق مظهر الصورة تماماً (RTL)
-        desired_cols = ["الاسم المدخل (من المشرف)", "المشرف المسؤول", "التقييم", "رقم الهوية", "اسم المعلم (من الإدارة)"]
+        # تطبيق الترتيب الصارم المطلوب: المشرف ⬅️ الأسماء جنباً إلى جنب ⬅️ الهويات جنباً إلى جنب
+        desired_cols = ["المشرف المسؤول", "اسم المعلم (من الإدارة)", "الاسم المدخل (من المشرف)", "رقم هوية (HR)", "رقم هوية (المشرف)", "التقييم"]
         existing_cols = [c for c in desired_cols if c in filtered_df.columns]
         remaining_cols = [c for c in filtered_df.columns if c not in existing_cols]
         filtered_df = filtered_df[existing_cols + remaining_cols]
@@ -481,6 +489,7 @@ if mushrif_file and admin_file:
             key="download_filtered_btn"
         )
         
+        # تجهيز العرض التفاعلي بقلب المصفوفة ليدعم الـ RTL في السحب الجانبي للجدول
         col_order_filt = list(filtered_df.columns)[::-1]
         col_config_filt = {col: st.column_config.Column(alignment="right") for col in filtered_df.columns}
         
