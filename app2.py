@@ -288,6 +288,70 @@ if mushrif_file and admin_file:
         
         status.update(label=f"⚡ تمت معالجة المخاطر والمطابقة المركبة بنجاح في {execution_time:.2f} ثانية!", state="complete", expanded=False)
 
+        # ------------------------------------------------------------
+        # 🛠️ [الخطوة 1] بناء أدوات التحكم والفلاتر (خيارات العرض وتصفية المشرف)
+        # ------------------------------------------------------------
+        st.markdown("### 🎛️ خيارات العرض والتصفية")
+        
+        # 1. خيار عرض المشاكل فقط
+        show_problems_only = st.checkbox("⚠️ عرض المعلمين الذين لديهم مشاكل فقط", value=False)
+        
+        # 2. تجهيز قائمة المشرفين للتصفية (نجمع المشرفين الذين لديهم أخطاء)
+        supervisor_options = ["الكل"]
+        if not teacher_all_errors_df.empty:
+            supervisor_options.extend(teacher_all_errors_df["👨‍🏫 المشرف المسؤول"].unique().tolist())
+        
+        st.markdown("#### 👤 تصفية حسب المشرف")
+        selected_sup = st.selectbox("اختر اسم المشرف:", options=supervisor_options)
+        
+        # 3. تطبيق منطق الفلترة بناءً على الاختيارات
+        filtered_df = results_df.copy() if not results_df.empty else pd.DataFrame()
+        
+        # إذا اختار المستخدم عرض المشاكل فقط، نتحول لجدول الأخطاء الشامل
+        if show_problems_only:
+            filtered_df = teacher_all_errors_df.copy() if not teacher_all_errors_df.empty else pd.DataFrame()
+            
+        # تطبيق تصفية اسم المشرف المختار (إذا لم يكن "الكل")
+        if selected_sup != "الكل" and not filtered_df.empty:
+            if show_problems_only:
+                filtered_df = filtered_df[filtered_df["👨‍🏫 المشرف المسؤول"] == selected_sup]
+            else:
+                # في الجدول العام، نبحث عن اسم المشرف داخل النص المدمج
+                filtered_df = filtered_df[filtered_df["👨‍🏫 المشرف"].str.contains(selected_sup, na=False)]
+        
+        # 4. عرض الجدول المصفّى مباشرة للمستخدم مع ميزة الاتجاه الصحيح من اليمين
+        st.markdown(f"📊 **النتائج المصفاة بحسب خياراتك (عدد السجلات: {len(filtered_df)}):**")
+        if not filtered_df.empty:
+            col_order_filt = list(filtered_df.columns)[::-1]
+            col_config_filt = {col: st.column_config.Column(alignment="right") for col in filtered_df.columns}
+            
+            # إذا كان الجدول يحتوي على روابط واتساب، ننسق العمود يميناً
+            if "💬 تنبيه الواتساب" in filtered_df.columns:
+                col_config_filt["💬 تنبيه الواتساب"] = st.column_config.LinkColumn(
+                    "💬 تنبيه الواتساب", display_text="📱 إرسال التنبيه للمشرف", alignment="right"
+                )
+                
+            # تطبيق ستايل التلوين إذا كانت تظهر أعمدة الخطورة
+            if "🔥 درجة الخطورة" in filtered_df.columns:
+                display_df = filtered_df.style.map(style_severity, subset=["🔥 درجة الخطورة"])
+            else:
+                display_df = filtered_df
+                
+            st.dataframe(
+                display_df,
+                column_order=col_order_filt,
+                column_config=col_config_filt,
+                use_container_width=True,
+                height=350,
+                hide_index=False  # تركنا الـ Index يظهر تماماً كما في صورتك المرفقة لسهولة تتبع الأسطر
+            )
+        else:
+            st.info("لا توجد بيانات مطابقة للخيارات المحددة حالياً.")
+        st.markdown("---")
+
+    
+
+    
     # ============================================================
     # 5. عرض الإحصائيات الذكية والمؤشرات الحيوية
     # ============================================================
