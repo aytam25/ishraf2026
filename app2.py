@@ -299,7 +299,8 @@ if mushrif_file and admin_file:
             st.success("✅ سجلات نظيفة تماماً! لا يوجد أي معلمين لديهم أخطاء في الأسماء أو الهويات.")
             
     with tab2:  # 👈 تأكد أيضاً أن with tab2 محاذية تماماً لما فوقها
-        st.subheader("🔍 نظام المقترحات الذكي لتصحيح الهويات")        if not suggestions_df.empty:
+        st.subheader("🔍 نظام المقترحات الذكي لتصحيح الهويات")
+        if not suggestions_df.empty:
             st.dataframe(suggestions_df, use_container_width=True)
         else:
             st.success("✅ نظيف! لا توجد فروقات أو أخطاء في كتابة الأرقام.")
