@@ -191,6 +191,7 @@ if mushrif_file and admin_file:
                         "🆔 الرقم الصحيح (HR)": admin_id,
                         "🔍 الرقم الخاطئ عند المشرف": best_match_id,
                         "📝 الاسم المدخل بواسطة المشرف": best_match_name,
+                        "👨‍🏫 المشرف المسؤول": sup_person,  # 👈 هذا هو السطر الجديد الذي أضفناه
                         "📊 تشابه الرقم": f"{best_id_sim:.0%}",
                         "📊 تشابه الاسم": f"{best_name_sim:.0%}"
                     })
