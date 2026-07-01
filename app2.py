@@ -3,25 +3,63 @@ import pandas as pd
 from difflib import SequenceMatcher
 import io
 import time
-import urllib.parse  # 👈   أضف هذا السطر في الأعلى لتجهيز نصوص الروابط
+import urllib.parse
+
 # ============================================================
-# إعدادات الصفحة المتقدمة
-# ============================================================
-# إعدادات الصفحة المتقدمة
+# 1. إعدادات الصفحة المتقدمة
 # ============================================================
 st.set_page_config(
     page_title="نظام دمج تقييمات المعلمين - النسخة الاحترافية",
     page_icon="📊",
     layout="wide"
 )
-
-# العنوان الرئيسي (Streamlit يطبّق التنسيق تلقائيًا)
-st.title("📊 نظام دمج تقييمات المعلمين - المطابقة الذكية ورادار المخاطر")
-
-# خط فاصل
-st.markdown("---")
+    
 # ============================================================
-# رفع الملفات
+# 2. حقن دلالات التنسيق الكامل لتأمين الواجهة العربي (RTL)
+# ============================================================
+st.markdown("""
+    <style>
+    /* تطبيق اتجاه القراءة والكتابة من اليمين إلى اليسار على كامل التطبيق */
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+        direction: rtl;
+        text-align: right;
+    }
+    /* ضبط محاذاة التبويبات (Tabs) لتناسب الاتجاه العربي */
+    div[data-testid="stTabs"] {
+        direction: rtl;
+    }
+    div[data-testid="stTabs"] button {
+        direction: rtl;
+        text-align: right;
+    }
+    /* تحسين مظهر العنوان الرئيسي */
+    .main-title { 
+        font-size: 2.2rem !important; 
+        font-weight: bold; 
+        color: #1E3A8A; 
+        text-align: right; 
+    }
+    /* تنسيق كروت المؤشرات الحيوية (Metrics) */
+    div[data-testid="stMetric"] { 
+        background-color: #f8fafc; 
+        padding: 10px 15px; 
+        border-radius: 8px; 
+        border: 1px solid #e2e8f0; 
+        text-align: right;
+    }
+    /* محاذاة نصوص التنبيهات وصناديق رفع الملفات لليد اليمنى */
+    .stAlert, div[data-testid="stFileUploader"] {
+        direction: rtl;
+        text-align: right;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown('<p class="main-title">📊 نظام دمج تقييمات المعلمين - المطابقة الذكية ورادار المخاطر</p>', unsafe_allow_html=True)
+st.markdown("---")
+
+# ============================================================
+# 3. رفع الملفات
 # ============================================================
 col1, col2 = st.columns(2)
 with col1:
@@ -39,7 +77,7 @@ if mushrif_file and admin_file:
         mushrif_df = pd.read_excel(mushrif_file, dtype={'التقييم': str})
         admin_df = pd.read_excel(admin_file)
         
-        # توحيد أسماء الأعمدة
+        # توحيد أسماء الأعمدة المتوقعة
         mushrif_df = mushrif_df.rename(columns={
             "الاسم": "اسم المعلم", "رقم الهوية": "رقم الهوية",
             "التقييم": "التقييم", "المشرف": "اسم المشرف"
@@ -48,22 +86,56 @@ if mushrif_file and admin_file:
             "الاسم": "اسم المعلم", "رقم الهوية": "رقم الهوية"
         })
         
+        # ------------------------------------------------------------
+        # 🛡️ صمام الأمان: فحص بنية الملفات والتحقق من وجود الأعمدة المطلوبة
+        # ------------------------------------------------------------
+        required_mushrif = ["اسم المعلم", "رقم الهوية", "التقييم", "اسم المشرف"]
+        required_admin = ["اسم المعلم", "رقم الهوية"]
+        
+        missing_mushrif = [col for col in required_mushrif if col not in mushrif_df.columns]
+        missing_admin = [col for col in required_admin if col not in admin_df.columns]
+        
+        if missing_mushrif or missing_admin:
+            status.update(label="❌ فشل التحقق من بنية الملفات المرفوعة!", state="error", expanded=True)
+            
+            if missing_mushrif:
+                st.error(f"⚠️ **خطأ في ملف المشرفين:** لم نجد الأعمدة التالية أو مرادفات لها: {missing_mushrif}")
+                st.info("💡 يرجى التأكد من أن الملف يحتوي على أعمدة واضحة للأسماء، أرقام الهويات، التقييمات، وأسماء المشرفين.")
+                
+            if missing_admin:
+                st.error(f"⚠️ **خطأ في ملف الشؤون الإدارية (HR):** لم نجد الأعمدة التالية أو مرادفات لها: {missing_admin}")
+                st.info("💡 يرجى التأكد من أن ملف الـ HR يحتوي على عمود للأسماء وعمود لأرقام الهويات.")
+                
+            st.stop() # إيقاف البرنامج هنا بأمان وحماية المستخدم من الأخطاء البرمجية الهيكلية
+            
+        # ------------------------------------------------------------
+        # 4. تنظيف وتطبيع البيانات
+        # ------------------------------------------------------------
         st.write("🧼 تنظيف وتطبيع أرقام الهوية والأسماء برمجياً (Vectorized)...")
         for df in [mushrif_df, admin_df]:
             df["رقم الهوية_standard"] = df["رقم الهوية"].astype(str).str.strip().str.split('.').str[0]
             df["رقم الهوية_standard"] = df["رقم الهوية_standard"].replace(['nan', 'None', '<NA>'], '')
             
-            # حشو الأرقام المكونة من 8 خانات بصفر
+            # حشو الأرقام المكونة من 8 خانات بصفر جهة اليسار
             mask = (df["رقم الهوية_standard"].str.len() == 8) & (df["رقم الهوية_standard"].str.isdigit())
             df.loc[mask, "رقم الهوية_standard"] = '0' + df.loc[mask, "رقم الهوية_standard"]
             
             df["اسم المعلم"] = df["اسم المعلم"].fillna("").astype(str).str.strip()
 
-        # دالة قياس نسبة التشابه
+        # ------------------------------------------------------------
+        # 🛡️ دالة قياس نسبة التشابه الذكي (المحصنة ضد القيم الغائبة والخلايا الفارغة)
+        # ------------------------------------------------------------
         def similarity(a, b):
-            if not a or not b: return 0
-            if a == b: return 1.0
-            return SequenceMatcher(None, a, b).ratio()
+            a_str = str(a).strip() if not pd.isna(a) else ""
+            b_str = str(b).strip() if not pd.isna(b) else ""
+            
+            if a_str in ["nan", "None", ""] or b_str in ["nan", "None", ""]:
+                return 0
+                
+            if a_str == b_str: 
+                return 1.0
+                
+            return SequenceMatcher(None, a_str, b_str).ratio()
         
         st.write("🏗️ بناء كشافات البحث السريع لملفات المشرفين...")
         supervisor_map = {}
@@ -84,7 +156,7 @@ if mushrif_file and admin_file:
         st.write("🧠 تشغيل خوارزمية المطابقة الذكية وتحليل درجات الخطورة...")
         
         results, suggestions, not_found, error_details = [], [], [], []
-        teacher_all_errors = [] # مصفوفة تجمع كافة أخطاء المعلمين لتغذية التبويب الجديد
+        teacher_all_errors = [] # مصفوفة تجمع كافة أخطاء المعلمين لتغذية تبويب رادار المعلم
         
         admin_ids_set = set(admin_df["رقم الهوية_standard"].unique())
         unmatched_supervisor_ids = [sid for sid in supervisor_map if sid not in admin_ids_set]
@@ -187,7 +259,7 @@ if mushrif_file and admin_file:
                         "🆔 الرقم الصحيح (HR)": admin_id,
                         "🔍 الرقم الخاطئ عند المشرف": best_match_id,
                         "📝 الاسم المدخل بواسطة المشرف": best_match_name,
-                        "👨‍🏫 المشرف المسؤول": sup_person,  # 👈 هذا هو السطر الجديد الذي أضفناه
+                        "👨‍🏫 المشرف المسؤول": sup_person,
                         "📊 تشابه الرقم": f"{best_id_sim:.0%}",
                         "📊 تشابه الاسم": f"{best_name_sim:.0%}"
                     })
@@ -217,7 +289,7 @@ if mushrif_file and admin_file:
         status.update(label=f"⚡ تمت معالجة المخاطر والمطابقة المركبة بنجاح في {execution_time:.2f} ثانية!", state="complete", expanded=False)
 
     # ============================================================
-    # عرض الإحصائيات الذكية والمؤشرات الحيوية
+    # 5. عرض الإحصائيات الذكية والمؤشرات الحيوية
     # ============================================================
     st.markdown("### 📊 نظرة عامة على البيانات")
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -240,7 +312,7 @@ if mushrif_file and admin_file:
         return ""
 
     # ============================================================
-    # تبويبات العرض المطورة (تم إضافة التبويب الجديد كـ ثاني تبويب لأهميته)
+    # 6. تبويبات العرض المطورة ومحاذاتها بدقة بالغة
     # ============================================================
     tab1, tab_errors, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "📊 الموجودون والدمج", "🔍 رادار الأخطاء الشاملة للمعلم 🎯", 
@@ -255,12 +327,12 @@ if mushrif_file and admin_file:
         else:
             st.info("لا توجد بيانات متاحة للعرض")
             
-    with tab_errors:  # 👈 تأكد أن هذا السطر يبدأ من نفس العمود الذي تبدأ منه with tab1 تماماً
+    with tab_errors:
         st.subheader("🔍 كشف مجمع وبؤرة تحليل أخطاء المعلمين")
         st.info("💡 هذا التبويب يجمع لك كل معلم واجه مشكلة في البيانات المدخلة، ويحتوي على زر لإرسال تنبيه جاهز للمشرف عبر الواتساب.")
         
         if not teacher_all_errors_df.empty:
-            # توليد روابط الواتساب الذكية
+            # توليد روابط الواتساب الذكية تلقائياً
             whatsapp_links = []
             for row in teacher_all_errors_df.to_dict(orient='records'):
                 sup = row["👨‍🏫 المشرف المسؤول"]
@@ -294,7 +366,7 @@ if mushrif_file and admin_file:
         else:
             st.success("✅ سجلات نظيفة تماماً! لا يوجد أي معلمين لديهم أخطاء في الأسماء أو الهويات.")
             
-    with tab2:  # 👈 تأكد أيضاً أن with tab2 محاذية تماماً لما فوقها
+    with tab2:
         st.subheader("🔍 نظام المقترحات الذكي لتصحيح الهويات")
         if not suggestions_df.empty:
             st.dataframe(suggestions_df, use_container_width=True)
