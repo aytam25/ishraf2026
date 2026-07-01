@@ -8,7 +8,7 @@ import time
 # إعدادات الصفحة المتقدمة
 # ============================================================
 st.set_page_config(
-    page_title="نظام دمج تقييمات المعلمين - الذكي الفائق",
+    page_title="نظام دمج تقييمات المعلمين - النسخة الاحترافية",
     page_icon="📊",
     layout="wide"
 )
@@ -17,12 +17,11 @@ st.set_page_config(
 st.markdown("""
     <style>
     .main-title { font-size: 2.2rem !important; font-weight: bold; color: #1E3A8A; text-align: right; }
-    .metric-card { background-color: #F3F4F6; padding: 15px; border-radius: 10px; border-right: 5px solid #3B82F6; }
     div[data-testid="stMetric"] { background-color: #f8fafc; padding: 10px 15px; border-radius: 8px; border: 1px solid #e2e8f0; }
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="main-title">📊 نظام دمج تقييمات المعلمين - المطابقة الذكية والسرعة الفائقة</p>', unsafe_allow_html=True)
+st.markdown('<p class="main-title">📊 نظام دمج تقييمات المعلمين - المطابقة الذكية ورادار المخاطر</p>', unsafe_allow_html=True)
 st.markdown("---")
 
 # ============================================================
@@ -36,17 +35,15 @@ with col2:
 
 if mushrif_file and admin_file:
     
-    # استخدام st.status لتتبع خطوات المعالجة بدقة
-    with st.status("🔄 جاري معالجة البيانات وتطبيق خوارزميات المطابقة...", expanded=True) as status:
+    with st.status("🔄 جاري معالجة البيانات وتطبيق خوارزميات رادار المخاطر...", expanded=True) as status:
         
         start_time = time.time()
         
         st.write("⏳ قراءة وتحليل ملفات Excel داخل الذاكرة...")
-        # قراءة الملفات مباشرة مع تحسين الأنواع
         mushrif_df = pd.read_excel(mushrif_file, dtype={'التقييم': str})
         admin_df = pd.read_excel(admin_file)
         
-        # توحيد أسماء الأعمدة لضمان عدم حدوث أخطاء كشافات
+        # توحيد أسماء الأعمدة
         mushrif_df = mushrif_df.rename(columns={
             "الاسم": "اسم المعلم", "رقم الهوية": "رقم الهوية",
             "التقييم": "التقييم", "المشرف": "اسم المشرف"
@@ -56,27 +53,23 @@ if mushrif_file and admin_file:
         })
         
         st.write("🧼 تنظيف وتطبيع أرقام الهوية والأسماء برمجياً (Vectorized)...")
-        # استخدام هندسة المصفوفات الآمنة في Pandas لمنع الـ TypeError نهائياً
         for df in [mushrif_df, admin_df]:
-            # تنظيف وتوحيد رقم الهوية وعزل الكسور إن وجدت دفعة واحدة
             df["رقم الهوية_standard"] = df["رقم الهوية"].astype(str).str.strip().str.split('.').str[0]
             df["رقم الهوية_standard"] = df["رقم الهوية_standard"].replace(['nan', 'None', '<NA>'], '')
             
-            # الحل الجذري هنا: حشو الأرقام المكونة من 8 خانات بصفر باستخدام قناع موجه (Vectorized Mask) آمن تماماً
+            # حشو الأرقام المكونة من 8 خانات بصفر
             mask = (df["رقم الهوية_standard"].str.len() == 8) & (df["رقم الهوية_standard"].str.isdigit())
             df.loc[mask, "رقم الهوية_standard"] = '0' + df.loc[mask, "رقم الهوية_standard"]
             
-            # تنظيف النصوص والأسماء من الفراغات الجانبية والقيم الفارغة
             df["اسم المعلم"] = df["اسم المعلم"].fillna("").astype(str).str.strip()
 
-        # دالة قياس نسبة التشابه المحسّنة (سريعة جداً عند التطابق التام)
+        # دالة قياس نسبة التشابه
         def similarity(a, b):
             if not a or not b: return 0
-            if a == b: return 1.0  # اختصار يوفر طاقة المعالجة الزمنية للأسماء المتطابقة
+            if a == b: return 1.0
             return SequenceMatcher(None, a, b).ratio()
         
         st.write("🏗️ بناء كشافات البحث السريع لملفات المشرفين...")
-        # تحويل تجميع البيانات إلى هيكل بيانات موحد وسريع الاستدعاء O(1)
         supervisor_map = {}
         for row in mushrif_df.to_dict(orient='records'):
             id_num = row["رقم الهوية_standard"]
@@ -89,24 +82,24 @@ if mushrif_file and admin_file:
                     "الاسم_المدخل": [row["اسم المعلم"]]
                 }
             else:
-                # تجميع تلقائي في قوائم عند تكرار نفس الهوية عند أكثر من مشرف
                 supervisor_map[id_num]["المشرف"].append(row["اسم المشرف"])
                 supervisor_map[id_num]["الاسم_المدخل"].append(row["اسم المعلم"])
 
-        st.write("🧠 تشغيل خوارزمية المطابقة الذكية وعزل الأخطاء...")
+        st.write("🧠 تشغيل خوارزمية المطابقة الذكية وتحليل درجات الخطورة...")
         
         results, suggestions, not_found, error_details = [], [], [], []
+        teacher_all_errors = [] # مصفوفة تجمع كافة أخطاء المعلمين لتغذية التبويب الجديد
         
-        # حصر أرقام هويات المشرفين غير الموجودة في HR لتقليص نطاق البحث الذكي (Fuzzy Matching)
         admin_ids_set = set(admin_df["رقم الهوية_standard"].unique())
         unmatched_supervisor_ids = [sid for sid in supervisor_map if sid not in admin_ids_set]
         
-        # حلقة معالجة أساسية رشيقة وسريعة جداً O(N)
         for admin_row in admin_df.to_dict(orient='records'):
             admin_id = admin_row["رقم الهوية_standard"]
             admin_name = admin_row["اسم المعلم"]
             
-            # الحالة 1: الرقم متطابق تماماً وموجود في سجلات المشرفين
+            # ------------------------------------------------------------
+            # الحالة 1: الرقم متطابق تماماً في السيستم
+            # ------------------------------------------------------------
             if admin_id in supervisor_map:
                 data = supervisor_map[admin_id]
                 score = data["التقييم"]
@@ -117,6 +110,21 @@ if mushrif_file and admin_file:
                         statuses.append(f"✅ صحيح عند المشرف {sup}")
                     else:
                         statuses.append(f"⚠️ خطأ في الاسم عند المشرف {sup}")
+                        name_sim = similarity(admin_name, ent_name)
+                        
+                        # إضافة خطأ (منخفض الخطورة) لأن الرقم صحيح والاسم به مشكلة مطبعية
+                        teacher_all_errors.append({
+                            "👤 اسم المعلم (HR)": admin_name,
+                            "🆔 الهوية الصحيحة (HR)": admin_id,
+                            "📝 الاسم عند المشرف": ent_name,
+                            "🔍 الهوية عند المشرف": admin_id,
+                            "👨‍🏫 المشرف المسؤول": sup,
+                            "📊 تشابه الاسم": f"{name_sim:.0%}",
+                            "📊 تشابه الهوية": "100%",
+                            "🚨 طبيعة الخطأ": "خطأ مطبعي في الاسم فقط",
+                            "🔥 درجة الخطورة": "ℹ️ منخفضة (خطأ في الاسم فقط)"
+                        })
+                        
                         error_details.append({
                             "المشرف": sup, "المعلم": admin_name, "الرقم": admin_id,
                             "الاسم المدخل": ent_name, "الاسم الصحيح": admin_name, "نوع الخطأ": "خطأ في الاسم"
@@ -131,20 +139,22 @@ if mushrif_file and admin_file:
                     "📌 الحالة": " | ".join(statuses)
                 })
             
-            # الحالة 2: الرقم غير موجود في الكشاف (البحث الذكي المقيد بالفروقات البسيطة)
+            # ------------------------------------------------------------
+            # الحالة 2: الرقم غير موجود (البحث الذكي والمركب عن الأخطاء)
+            # ------------------------------------------------------------
             else:
                 found_suggestion = False
                 best_match_id, best_match_name = None, None
                 best_id_sim, best_name_sim = 0, 0
                 
-                # المقارنة الذكية تتم فقط مع الهويات التي أخطأ المشرفون في إدخالها وليس كامل الملف!
                 for sup_id in unmatched_supervisor_ids:
                     id_sim = similarity(admin_id, sup_id)
-                    if id_sim <= 0.6: 
-                        continue  # تخطي فوري لتوفير الوقت إذا كانت الأرقام متباعدة جداً
+                    if id_sim <= 0.6: continue
                     
                     for sup_name in supervisor_map[sup_id]["الاسم_المدخل"]:
                         name_sim = similarity(admin_name, sup_name)
+                        
+                        # التقاط التطابق الذكي (سواء خطأ في الهوية فقط أو خطأ مركب اسم+هوية)
                         if name_sim > 0.85 and id_sim > 0.6:
                             if id_sim > best_id_sim:
                                 best_id_sim, best_name_sim = id_sim, name_sim
@@ -152,6 +162,30 @@ if mushrif_file and admin_file:
                                 found_suggestion = True
                 
                 if found_suggestion:
+                    # تحديد درجة الخطورة بناءً على نوع الخطأ المدخل
+                    idx = supervisor_map[best_match_id]["الاسم_المدخل"].index(best_match_name)
+                    sup_person = supervisor_map[best_match_id]["المشرف"][idx]
+                    
+                    if best_name_sim == 1.0:
+                        severity_level = "⚠️ متوسطة (خطأ في رقم الهوية)"
+                        error_nature = "خطأ في رقم الهوية فقط"
+                    else:
+                        severity_level = "🚨 عالية جداً (خطأ في الاسم والهوية)"
+                        error_nature = "خطأ مركب (الاسم والهوية معاً)"
+                    
+                    # تسجيل المخالفة بالتفصيل في جدول رادار الأخطاء الشامل
+                    teacher_all_errors.append({
+                        "👤 اسم المعلم (HR)": admin_name,
+                        "🆔 الهوية الصحيحة (HR)": admin_id,
+                        "📝 الاسم عند المشرف": best_match_name,
+                        "🔍 الهوية عند المشرف": best_match_id,
+                        "👨‍🏫 المشرف المسؤول": sup_person,
+                        "📊 تشابه الاسم": f"{best_name_sim:.0%}",
+                        "📊 تشابه الهوية": f"{best_id_sim:.0%}",
+                        "🚨 طبيعة الخطأ": error_nature,
+                        "🔥 درجة الخطورة": severity_level
+                    })
+                    
                     suggestions.append({
                         "👤 الاسم في (HR)": admin_name,
                         "🆔 الرقم الصحيح (HR)": admin_id,
@@ -172,6 +206,7 @@ if mushrif_file and admin_file:
         suggestions_df = pd.DataFrame(suggestions) if suggestions else pd.DataFrame()
         not_found_df = pd.DataFrame(not_found) if not_found else pd.DataFrame()
         error_details_df = pd.DataFrame(error_details) if error_details else pd.DataFrame()
+        teacher_all_errors_df = pd.DataFrame(teacher_all_errors) if teacher_all_errors else pd.DataFrame()
         
         if not error_details_df.empty:
             supervisor_error_summary = error_details_df.groupby("المشرف").size().reset_index()
@@ -182,7 +217,7 @@ if mushrif_file and admin_file:
         end_time = time.time()
         execution_time = end_time - start_time
         
-        status.update(label=f"⚡ تمت عملية المعالجة والمطابقة بنجاح فائق خلال {execution_time:.2f} ثانية!", state="complete", expanded=False)
+        status.update(label=f"⚡ تمت معالجة المخاطر والمطابقة المركبة بنجاح في {execution_time:.2f} ثانية!", state="complete", expanded=False)
 
     # ============================================================
     # عرض الإحصائيات الذكية والمؤشرات الحيوية
@@ -191,37 +226,61 @@ if mushrif_file and admin_file:
     col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("📋 إجمالي معلمين HR", len(admin_df))
     col2.metric("✅ تم دمجهم بنجاح", len(results_df))
-    col3.metric("🔍 هويات مقترح تصحيحها", len(suggestions_df))
+    col3.metric("🔍 إجمالي المعلمين المخطأ بحقهم", len(teacher_all_errors_df))
     col4.metric("❌ معلمين بلا تقييم", len(not_found_df))
-    col5.metric("⚠️ أخطاء أسماء المشرفين", len(error_details_df))
+    col5.metric("⚠️ أخطاء المشرفين الكلية", len(error_details_df) + len(suggestions_df))
     
     st.markdown("---")
     
+    # دالة تلوين خلايا درجة الخطورة ديناميكياً
+    def style_severity(val):
+        if "عالية جداً" in str(val):
+            return "background-color: #fee2e2; color: #991b1b; font-weight: bold; border: 1px solid #fca5a5;"
+        elif "متوسطة" in str(val):
+            return "background-color: #fef3c7; color: #92400e; font-weight: bold; border: 1px solid #fde68a;"
+        elif "منخفضة" in str(val):
+            return "background-color: #e0f2fe; color: #075985; border: 1px solid #bae6fd;"
+        return ""
+
     # ============================================================
-    # تبويبات العرض المطورة
+    # تبويبات العرض المطورة (تم إضافة التبويب الجديد كـ ثاني تبويب لأهميته)
     # ============================================================
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "📊 الموجودون والدمج", "🔍 مقترحات تصحيح الهوية", 
-        "❌ معلمين بلا تقييم", "⚠️ رادار أخطاء المشرفين", 
-        "📈 التحليلات والمخططات", "📥 مركز تحميل التقارير"
+    tab1, tab_errors, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "📊 الموجودون والدمج", "🔍 رادار الأخطاء الشاملة للمعلم 🎯", 
+        "🔍 مقترحات تصحيح الهوية", "❌ معلمين بلا تقييم", 
+        "⚠️ رادار أخطاء المشرفين", "📈 التحليلات والمخططات", "📥 مركز تحميل التقارير"
     ])
     
     with tab1:
         st.subheader("📊 بيان المعلمين المدمجة تقييماتهم")
         if not results_df.empty:
             st.dataframe(results_df, use_container_width=True, height=400)
-            
-            c1, c2, c3 = st.columns(3)
-            c1.metric("🎯 سليم تماماً", len(results_df[results_df['📌 الحالة'].str.contains("✅")]))
-            c2.metric("⚙️ يحتاج مراجعة اسم", len(results_df[results_df['📌 الحالة'].str.contains("⚠️")]))
-            avg_score = pd.to_numeric(results_df['⭐ التقييم'], errors='coerce').mean()
-            c3.metric("⭐ متوسط تقييمات المجموعة", f"{avg_score:.2f}" if not pd.isna(avg_score) else "N/A")
         else:
             st.info("لا توجد بيانات متاحة للعرض")
             
+    with tab_errors:
+        st.subheader("🔍 كشف مجمع وبؤرة تحليل أخطاء المعلمين")
+        st.info("💡 هذا التبويب يجمع لك كل معلم واجه مشكلة في البيانات المدخلة من قبل المشرفين، ويصنفها لك بحسب الخطورة (سواء خطأ في الاسم، أو الهوية، أو أخطاء مركبة معاً كحالة الأستاذة سناء صابر).")
+        
+        if not teacher_all_errors_df.empty:
+            # تطبيق التلوين الاحترافي على عمود درجة الخطورة
+            styled_errors_df = teacher_all_errors_df.style.applymap(style_severity, subset=["🔥 درجة الخطورة"])
+            st.dataframe(styled_errors_df, use_container_width=True, height=400)
+            
+            # إحصائيات سريعة للأخطاء
+            c1, c2, c3 = st.columns(3)
+            high_count = len(teacher_all_errors_df[teacher_all_errors_df["🔥 درجة الخطورة"].str.contains("عالية")])
+            med_count = len(teacher_all_errors_df[teacher_all_errors_df["🔥 درجة الخطورة"].str.contains("متوسطة")])
+            low_count = len(teacher_all_errors_df[teacher_all_errors_df["🔥 درجة الخطورة"].str.contains("منخفضة")])
+            
+            c1.metric("🚨 أخطاء مركبة (عالية جداً)", high_count)
+            c2.metric("⚠️ أخطاء هوية (متوسطة)", med_count)
+            c3.metric("ℹ️ أخطاء أسماء (منخفضة)", low_count)
+        else:
+            st.success("✅ سجلات نظيفة تماماً! لا يوجد أي معلمين لديهم أخطاء في الأسماء أو الهويات.")
+            
     with tab2:
         st.subheader("🔍 نظام المقترحات الذكي لتصحيح الهويات")
-        st.info("📌 الخوارزمية رصدت هذه الحالات كـ (أخطاء رقمية مطبعية) قام بها المشرفون، حيث تطابق الاسم بنسبة عالية جداً واختلف الرقم قليلاً.")
         if not suggestions_df.empty:
             st.dataframe(suggestions_df, use_container_width=True)
         else:
@@ -245,73 +304,46 @@ if mushrif_file and admin_file:
                 st.markdown("#### 📊 ترتيب المشرفين حسب عدد الأخطاء")
                 st.dataframe(supervisor_error_summary, use_container_width=True)
         else:
-            st.success("✅ مذهل! جميع الأسماء المدخلة من قبل المشرفين متطابقة مع الشؤون الإدارية.")
+            st.success("✅ مذهل! جميع الأسماء المدخلة متطابقة.")
             
     with tab5:
         st.subheader("📈 رادار المخططات البيانية والتحليل الإحصائي")
         if not results_df.empty:
             col_chart1, col_chart2 = st.columns(2)
             with col_chart1:
-                st.markdown("##### 📌 توزيع حالات التطابق")
-                status_counts = results_df['📌 الحالة'].value_counts().reset_index()
-                status_counts.columns = ['الحالة', 'العدد']
-                st.bar_chart(status_counts.set_index('الحالة'))
+                if not teacher_all_errors_df.empty:
+                    st.markdown("##### 📌 توزيع مستويات خطورة البيانات المدخلة")
+                    err_counts = teacher_all_errors_df['🔥 درجة الخطورة'].value_counts().reset_index()
+                    err_counts.columns = ['درجة الخطورة', 'العدد']
+                    st.bar_chart(err_counts.set_index('درجة الخطورة'))
             with col_chart2:
                 st.markdown("##### 📊 الكثافة العددية للأخطاء لكل مشرف")
                 if not supervisor_error_summary.empty:
                     st.bar_chart(supervisor_error_summary.set_index("المشرف"))
-                else:
-                    st.info("لا توجد أخطاء لرسمها بيانيا.")
         else:
             st.info("قم برفع ملفات تحتوي على بيانات صالحة لتوليد المخططات.")
             
     with tab6:
         st.subheader("📥 مركز الاستخراج وتحميل التقارير المجمعة والمنفصلة")
         
-        # إنشاء ملف إكسل مجمع يحتوي على أوراق منفصلة لكل تصنيف
         output_buffer = io.BytesIO()
         with pd.ExcelWriter(output_buffer, engine='openpyxl') as writer:
             if not results_df.empty: results_df.to_excel(writer, sheet_name="الموجودين_والمدمجين", index=False)
+            if not teacher_all_errors_df.empty: teacher_all_errors_df.to_excel(writer, sheet_name="سجل_مخاطر_أخطاء_المعلمين", index=False)
             if not suggestions_df.empty: suggestions_df.to_excel(writer, sheet_name="اقتراحات_تعديل_الهويات", index=False)
             if not not_found_df.empty: not_found_df.to_excel(writer, sheet_name="معلمين_بدون_تقييم", index=False)
             if not error_details_df.empty: error_details_df.to_excel(writer, sheet_name="تفاصيل_أخطاء_المشرفين", index=False)
-            if not supervisor_error_summary.empty: supervisor_error_summary.to_excel(writer, sheet_name="ملخص_أداء_المشرفين", index=False)
         output_buffer.seek(0)
         
         st.download_button(
-            label="📥 تحميل التقرير الشامل والمدمج (ملف Excel واحد بتبويبات)",
+            label="📥 تحميل التقرير الشامل والمدمج (ملف Excel واحد بتبويبات تشمل سجل المخاطر)",
             data=output_buffer,
-            file_name="التقرير_الشامل_لدمج_المعلمين_الذكي.xlsx",
+            file_name="التقرير_الشامل_لدمج_المعلمين_ورادار_المخاطر.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        
-        st.markdown("---")
-        st.markdown("#### 💾 استخراج تقارير منفصلة فرعية")
-        dl_col1, dl_col2, dl_col3 = st.columns(3)
-        
-        if not results_df.empty:
-            with dl_col1:
-                b1 = io.BytesIO()
-                results_df.to_excel(b1, index=False, engine='openpyxl')
-                st.download_button("📥 تحميل ملف المدمجين فقط", data=b1.getvalue(), file_name="المعلمين_الموجودين.xlsx")
-        if not suggestions_df.empty:
-            with dl_col2:
-                b2 = io.BytesIO()
-                suggestions_df.to_excel(b2, index=False, engine='openpyxl')
-                st.download_button("📥 تحميل مقترحات تعديل الأرقام", data=b2.getvalue(), file_name="مقترحات_التصحيح.xlsx")
-        if not not_found_df.empty:
-            with dl_col3:
-                b3 = io.BytesIO()
-                not_found_df.to_excel(b3, index=False, engine='openpyxl')
-                st.download_button("📥 تحميل كشف غير الموجودين", data=b3.getvalue(), file_name="غير_الموجودين.xlsx")
 
 else:
     st.info("👈 يرجى رفع ملف المشرفين وملف الشؤون الإدارية (HR) من القائمة العلوية للبدء فورا.")
-    st.markdown("""
-    ### 📋 التنسيق القياسي المعتمد للمدخلات:
-    * **ملف المشرفين المجمع:** يجب أن يحتوي على الأعمدة التالية: `الاسم` ، `رقم الهوية` ، `التقييم` ، `المشرف`.
-    * **ملف الشؤون الإدارية (HR):** يجب أن يحتوي على الأعمدة التالية: `الاسم` ، `رقم الهوية`.
-    """)
 
 st.markdown("---")
-st.caption("📌 نظام دمج تقييمات المعلمين الفائق - الإصدار المطور والمسرّع v4.1 (مصحح بالكامل وآمن)")
+st.caption("📌 نظام دمج تقييمات المعلمين الفائق - الإصدار الذكي v5.0 (مدمج برادار المخاطر والأخطاء المركبة والتلوين الديناميكي)")
