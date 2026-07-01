@@ -17,9 +17,6 @@ st.set_page_config(
 # ============================================================
 # 2. حقن دلالات التنسيق الكامل لتأمين الواجهة العربي (RTL)
 # ============================================================
-# ============================================================
-# 2. حقن دلالات التنسيق الكامل لتأمين الواجهة العربي ورادار الجداول (RTL)
-# ============================================================
 st.markdown("""
     <style>
     /* تطبيق اتجاه القراءة والكتابة من اليمين إلى اليسار على كامل التطبيق */
@@ -55,47 +52,10 @@ st.markdown("""
         direction: rtl;
         text-align: right;
     }
-    /* إجبار حاويات الجداول التفاعلية على دعم الاتجاه العربي وعكس أشرطة التمرير */
+    /* ضبط حاويات الجداول الذكية داخلياً وعكس أشرطة التمرير للـ RTL */
     div[data-testid="stDataFrame"], div[data-testid="stDataFrame"] > div {
         direction: rtl !important;
         text-align: right !important;
-    }
-            
-    /* ⚡ التعديل الجديد مدمج هنا: تنسيق مخصص للجداول لتصبح RTL حقيقي وتبدأ الأعمدة من اليمين */
-    .rtl-table-container {
-        direction: rtl !important;
-        text-align: right !important;
-        overflow-x: auto;
-        width: 100%;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-    }
-    table.custom-rtl-table {
-        width: 100%;
-        border-collapse: collapse;
-        direction: rtl !important;
-        text-align: right !important;
-        font-family: sans-serif;
-    }
-    table.custom-rtl-table th {
-        background-color: #1E3A8A;
-        color: white;
-        padding: 12px;
-        font-weight: bold;
-        text-align: right !important;
-        border-bottom: 2px solid #e2e8f0;
-    }
-    table.custom-rtl-table td {
-        padding: 10px 12px;
-        border-bottom: 1px solid #e2e8f0;
-        text-align: right !important;
-        color: #334155;
-    }
-    table.custom-rtl-table tr:nth-child(even) {
-        background-color: #f8fafc;
-    }
-    table.custom-rtl-table tr:hover {
-        background-color: #f1f5f9;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -151,7 +111,7 @@ if mushrif_file and admin_file:
                 st.error(f"⚠️ **خطأ في ملف الشؤون الإدارية (HR):** لم نجد الأعمدة التالية أو مرادفات لها: {missing_admin}")
                 st.info("💡 يرجى التأكد من أن ملف الـ HR يحتوي على عمود للأسماء وعمود لأرقام الهويات.")
                 
-            st.stop() # إيقاف البرنامج هنا بأمان وحماية المستخدم من الأخطاء البرمجية الهيكلية
+            st.stop()
             
         # ------------------------------------------------------------
         # 4. تنظيف وتطبيع البيانات
@@ -168,7 +128,7 @@ if mushrif_file and admin_file:
             df["اسم المعلم"] = df["اسم المعلم"].fillna("").astype(str).str.strip()
 
         # ------------------------------------------------------------
-        # 🛡️ دالة قياس نسبة التشابه الذكي (المحصنة ضد القيم الغائبة والخلايا الفارغة)
+        # 🛡️ دالة قياس نسبة التشابه الذكي 
         # ------------------------------------------------------------
         def similarity(a, b):
             a_str = str(a).strip() if not pd.isna(a) else ""
@@ -201,7 +161,7 @@ if mushrif_file and admin_file:
         st.write("🧠 تشغيل خوارزمية المطابقة الذكية وتحليل درجات الخطورة...")
         
         results, suggestions, not_found, error_details = [], [], [], []
-        teacher_all_errors = [] # مصفوفة تجمع كافة أخطاء المعلمين لتغذية تبويب رادار المعلم
+        teacher_all_errors = []
         
         admin_ids_set = set(admin_df["رقم الهوية_standard"].unique())
         unmatched_supervisor_ids = [sid for sid in supervisor_map if sid not in admin_ids_set]
@@ -225,7 +185,6 @@ if mushrif_file and admin_file:
                         statuses.append(f"⚠️ خطأ في الاسم عند المشرف {sup}")
                         name_sim = similarity(admin_name, ent_name)
                         
-                        # إضافة خطأ (منخفض الخطورة) لأن الرقم صحيح والاسم به مشكلة مطبعية
                         teacher_all_errors.append({
                             "👤 اسم المعلم (HR)": admin_name,
                             "🆔 الهوية الصحيحة (HR)": admin_id,
@@ -253,7 +212,7 @@ if mushrif_file and admin_file:
                 })
             
             # ------------------------------------------------------------
-            # الحالة 2: الرقم غير موجود (البحث الذكي والمركب عن الأخطاء)
+            # الحالة 2: الرقم غير موجود
             # ------------------------------------------------------------
             else:
                 found_suggestion = False
@@ -267,7 +226,6 @@ if mushrif_file and admin_file:
                     for sup_name in supervisor_map[sup_id]["الاسم_المدخل"]:
                         name_sim = similarity(admin_name, sup_name)
                         
-                        # التقاط التطابق الذكي (سواء خطأ في الهوية فقط أو خطأ مركب اسم+هوية)
                         if name_sim > 0.85 and id_sim > 0.6:
                             if id_sim > best_id_sim:
                                 best_id_sim, best_name_sim = id_sim, name_sim
@@ -275,7 +233,6 @@ if mushrif_file and admin_file:
                                 found_suggestion = True
                 
                 if found_suggestion:
-                    # تحديد درجة الخطورة بناءً على نوع الخطأ المدخل
                     idx = supervisor_map[best_match_id]["الاسم_المدخل"].index(best_match_name)
                     sup_person = supervisor_map[best_match_id]["المشرف"][idx]
                     
@@ -286,7 +243,6 @@ if mushrif_file and admin_file:
                         severity_level = "🚨 عالية جداً (خطأ في الاسم والهوية)"
                         error_nature = "خطأ مركب (الاسم والهوية معاً)"
                     
-                    # تسجيل المخالفة بالتفصيل في جدول رادار الأخطاء الشامل
                     teacher_all_errors.append({
                         "👤 اسم المعلم (HR)": admin_name,
                         "🆔 الهوية الصحيحة (HR)": admin_id,
@@ -315,7 +271,6 @@ if mushrif_file and admin_file:
                         "📌 الملاحظة": "لم يتم رصد أي تقييم أو اسم مشابه من قبل المشرفين"
                     })
         
-        # تحويل المخرجات لـ DataFrames
         results_df = pd.DataFrame(results) if results else pd.DataFrame()
         suggestions_df = pd.DataFrame(suggestions) if suggestions else pd.DataFrame()
         not_found_df = pd.DataFrame(not_found) if not_found else pd.DataFrame()
@@ -346,7 +301,6 @@ if mushrif_file and admin_file:
     
     st.markdown("---")
     
-    # دالة تلوين خلايا درجة الخطورة ديناميكياً
     def style_severity(val):
         if "عالية جداً" in str(val):
             return "background-color: #fee2e2; color: #991b1b; font-weight: bold; border: 1px solid #fca5a5;"
@@ -357,7 +311,7 @@ if mushrif_file and admin_file:
         return ""
 
     # ============================================================
-    # 6. تبويبات العرض المطورة ومحاذاتها بدقة بالغة
+    # 6. تبويبات العرض المطورة مع تطبيق خدعة الـ RTL لكل الجداول
     # ============================================================
     tab1, tab_errors, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "📊 الموجودون والدمج", "🔍 رادار الأخطاء الشاملة للمعلم 🎯", 
@@ -365,34 +319,34 @@ if mushrif_file and admin_file:
         "⚠️ رادار أخطاء المشرفين", "📈 التحليلات والمخططات", "📥 مركز تحميل التقارير"
     ])
     
+    # ------------------------------------------------------------
+    # التبويب 1: الموجودون والدمج
+    # ------------------------------------------------------------
     with tab1:
         st.subheader("📊 بيان المعلمين المدمجة تقييماتهم")
         if not results_df.empty:
-            # 1. عكس ترتيب عرض الأعمدة تلقائياً لتبدأ من اليمين وتتجه لليسار
-            arabic_column_order = list(results_df.columns)[::-1]
+            col_order = list(results_df.columns)[::-1]
+            col_config = {col: st.column_config.Column(alignment="right") for col in results_df.columns}
             
-            # 2. إجبار جميع الأعمدة على محاذاة نصوصها وعناوينها إلى اليمين
-            columns_configuration = {
-                col: st.column_config.Column(alignment="right") for col in results_df.columns
-            }
-            
-            # 3. عرض الجدول الذكي الأصلي بكامل ميزاته التفاعلية
             st.dataframe(
                 results_df,
-                column_order=arabic_column_order,
-                column_config=columns_configuration,
+                column_order=col_order,
+                column_config=col_config,
                 use_container_width=True,
+                height=400,
                 hide_index=True
             )
         else:
             st.info("لا توجد بيانات متاحة للعرض")
             
+    # ------------------------------------------------------------
+    # التبويب 2: رادار الأخطاء الشاملة للمعلم (مع التلوين وزر الواتساب اليميني)
+    # ------------------------------------------------------------
     with tab_errors:
         st.subheader("🔍 كشف مجمع وبؤرة تحليل أخطاء المعلمين")
         st.info("💡 هذا التبويب يجمع لك كل معلم واجه مشكلة في البيانات المدخلة، ويحتوي على زر لإرسال تنبيه جاهز للمشرف عبر الواتساب.")
         
         if not teacher_all_errors_df.empty:
-            # توليد روابط الواتساب الذكية تلقائياً
             whatsapp_links = []
             for row in teacher_all_errors_df.to_dict(orient='records'):
                 sup = row["👨‍🏫 المشرف المسؤول"]
@@ -404,15 +358,26 @@ if mushrif_file and admin_file:
                 whatsapp_links.append(f"https://wa.me/?text={encoded_msg}")
             
             teacher_all_errors_df["💬 تنبيه الواتساب"] = whatsapp_links
+            
+            # إعداد خدعة الاتجاه والترتيب
+            col_order = list(teacher_all_errors_df.columns)[::-1]
+            col_config = {col: st.column_config.Column(alignment="right") for col in teacher_all_errors_df.columns}
+            # تخصيص عمود الرابط مع بقاء المحاذاة يميناً
+            col_config["💬 تنبيه الواتساب"] = st.column_config.LinkColumn(
+                "💬 تنبيه الواتساب", 
+                display_text="📱 إرسال التنبيه للمشرف",
+                alignment="right"
+            )
+            
             styled_errors_df = teacher_all_errors_df.style.map(style_severity, subset=["🔥 درجة الخطورة"])
             
             st.dataframe(
                 styled_errors_df, 
+                column_order=col_order,
+                column_config=col_config,
                 use_container_width=True, 
                 height=400,
-                column_config={
-                    "💬 تنبيه الواتساب": st.column_config.LinkColumn("💬 تنبيه الواتساب", display_text="📱 إرسال التنبيه للمشرف")
-                }
+                hide_index=True
             )
             
             c1, c2, c3 = st.columns(3)
@@ -426,33 +391,81 @@ if mushrif_file and admin_file:
         else:
             st.success("✅ سجلات نظيفة تماماً! لا يوجد أي معلمين لديهم أخطاء في الأسماء أو الهويات.")
             
+    # ------------------------------------------------------------
+    # التبويب 3: مقترحات تصحيح الهوية
+    # ------------------------------------------------------------
     with tab2:
         st.subheader("🔍 نظام المقترحات الذكي لتصحيح الهويات")
         if not suggestions_df.empty:
-            st.dataframe(suggestions_df, use_container_width=True)
+            col_order = list(suggestions_df.columns)[::-1]
+            col_config = {col: st.column_config.Column(alignment="right") for col in suggestions_df.columns}
+            
+            st.dataframe(
+                suggestions_df,
+                column_order=col_order,
+                column_config=col_config,
+                use_container_width=True,
+                hide_index=True
+            )
         else:
             st.success("✅ نظيف! لا توجد فروقات أو أخطاء في كتابة الأرقام.")
             
+    # ------------------------------------------------------------
+    # التبويب 4: معلمين بلا تقييم
+    # ------------------------------------------------------------
     with tab3:
         st.subheader("❌ معلمين لم يرفع المشرفون تقييمات لهم")
         if not not_found_df.empty:
-            st.dataframe(not_found_df, use_container_width=True)
+            col_order = list(not_found_df.columns)[::-1]
+            col_config = {col: st.column_config.Column(alignment="right") for col in not_found_df.columns}
+            
+            st.dataframe(
+                not_found_df,
+                column_order=col_order,
+                column_config=col_config,
+                use_container_width=True,
+                hide_index=True
+            )
         else:
             st.success("✅ ممتاز! تم إدخال تقييمات لجميع المعلمين المقيدين في HR.")
             
+    # ------------------------------------------------------------
+    # التبويب 5: رادار أخطاء المشرفين
+    # ------------------------------------------------------------
     with tab4:
         st.subheader("⚠️ سجل أخطاء المشرفين بالتفصيل")
         if not error_details_df.empty:
             col_left, col_right = st.columns([2, 1])
             with col_left:
                 st.markdown("#### 📝 جدول المخالفات والأخطاء المدخلة")
-                st.dataframe(error_details_df, use_container_width=True)
+                col_order_det = list(error_details_df.columns)[::-1]
+                col_config_det = {col: st.column_config.Column(alignment="right") for col in error_details_df.columns}
+                
+                st.dataframe(
+                    error_details_df,
+                    column_order=col_order_det,
+                    column_config=col_config_det,
+                    use_container_width=True,
+                    hide_index=True
+                )
             with col_right:
                 st.markdown("#### 📊 ترتيب المشرفين حسب عدد الأخطاء")
-                st.dataframe(supervisor_error_summary, use_container_width=True)
+                col_order_sum = list(supervisor_error_summary.columns)[::-1]
+                col_config_sum = {col: st.column_config.Column(alignment="right") for col in supervisor_error_summary.columns}
+                
+                st.dataframe(
+                    supervisor_error_summary,
+                    column_order=col_order_sum,
+                    column_config=col_config_sum,
+                    use_container_width=True,
+                    hide_index=True
+                )
         else:
             st.success("✅ مذهل! جميع الأسماء المدخلة متطابقة.")
             
+    # ------------------------------------------------------------
+    # التبويب 6: المخططات والتحليلات
+    # ------------------------------------------------------------
     with tab5:
         st.subheader("📈 رادار المخططات البيانية والتحليل الإحصائي")
         if not results_df.empty:
@@ -470,6 +483,9 @@ if mushrif_file and admin_file:
         else:
             st.info("قم برفع ملفات تحتوي على بيانات صالحة لتوليد المخططات.")
             
+    # ------------------------------------------------------------
+    # التبويب 7: مركز الاستخراج وتحميل التقارير
+    # ------------------------------------------------------------
     with tab6:
         st.subheader("📥 مركز الاستخراج وتحميل التقارير المجمعة والمنفصلة")
         
@@ -477,7 +493,7 @@ if mushrif_file and admin_file:
         with pd.ExcelWriter(output_buffer, engine='openpyxl') as writer:
             if not results_df.empty: results_df.to_excel(writer, sheet_name="الموجودين_والمدمجين", index=False)
             if not teacher_all_errors_df.empty: teacher_all_errors_df.to_excel(writer, sheet_name="سجل_مخاطر_أخطاء_المعلمين", index=False)
-            if not suggestions_df.empty: suggestions_df.to_excel(writer, sheet_name="اقتراحات_تعديل_الهويات", index=False)
+            if not suggestions_df.empty: suggestions_df.to_excel(writer, sheet_name="اقتраحات_تعديل_الهويات", index=False)
             if not not_found_df.empty: not_found_df.to_excel(writer, sheet_name="معلمين_بدون_تقييم", index=False)
             if not error_details_df.empty: error_details_df.to_excel(writer, sheet_name="تفاصيل_أخطاء_المشرفين", index=False)
         output_buffer.seek(0)
@@ -493,4 +509,4 @@ else:
     st.info("👈 يرجى رفع ملف المشرفين وملف الشؤون الإدارية (HR) من القائمة العلوية للبدء فورا.")
 
 st.markdown("---")
-st.caption("📌 نظام دمج تقييمات المعلمين الفائق - الإصدار الذكي v5.0 (مدمج برادار المخاطر والأخطاء المركبة والتلوين الديناميكي)")
+st.caption("📌 نظام دمج تقييمات المعلمين الفائق - الإصدار الذكي v5.2 (مدمج برادار المخاطر والأخطاء المركبة والتلوين والدعم الكامل لـ RTL)")
