@@ -259,16 +259,34 @@ if mushrif_file and admin_file:
         else:
             st.info("لا توجد بيانات متاحة للعرض")
             
- with tab_errors:
+    with tab_errors:  # 👈 تأكد أن هذا السطر يبدأ من نفس العمود الذي تبدأ منه with tab1 تماماً
         st.subheader("🔍 كشف مجمع وبؤرة تحليل أخطاء المعلمين")
-        st.info("💡 هذا التبويب يجمع لك كل معلم واجه مشكلة في البيانات المدخلة من قبل المشرفين، ويصنفها لك بحسب الخطورة (سواء خطأ في الاسم، أو الهوية، أو أخطاء مركبة معاً كحالة الأستاذة سناء صابر).")
+        st.info("💡 هذا التبويب يجمع لك كل معلم واجه مشكلة في البيانات المدخلة، ويحتوي على زر لإرسال تنبيه جاهز للمشرف عبر الواتساب.")
         
         if not teacher_all_errors_df.empty:
-            # تطبيق التلوين الاحترافي على عمود درجة الخطورة
-            styled_errors_df = teacher_all_errors_df.style.applymap(style_severity, subset=["🔥 درجة الخطورة"])
-            st.dataframe(styled_errors_df, use_container_width=True, height=400)
+            # توليد روابط الواتساب الذكية
+            whatsapp_links = []
+            for row in teacher_all_errors_df.to_dict(orient='records'):
+                sup = row["👨‍🏫 المشرف المسؤول"]
+                teacher = row["👤 اسم المعلم (HR)"]
+                err_type = row["🚨 طبيعة الخطأ"]
+                
+                msg = f"السلام عليكم أستاذ {sup}، يرجى التكرم بتعديل بيانات المعلم(ة) ({teacher}) في ملف التقييم الخاص بك، حيث تبين وجود ({err_type}). شكراً لتعاونك."
+                encoded_msg = urllib.parse.quote(msg)
+                whatsapp_links.append(f"https://wa.me/?text={encoded_msg}")
             
-            # إحصائيات سريعة للأخطاء
+            teacher_all_errors_df["💬 تنبيه الواتساب"] = whatsapp_links
+            styled_errors_df = teacher_all_errors_df.style.map(style_severity, subset=["🔥 درجة الخطورة"])
+            
+            st.dataframe(
+                styled_errors_df, 
+                use_container_width=True, 
+                height=400,
+                column_config={
+                    "💬 تنبيه الواتساب": st.column_config.LinkColumn("💬 تنبيه الواتساب", display_text="📱 إرسال التنبيه للمشرف")
+                }
+            )
+            
             c1, c2, c3 = st.columns(3)
             high_count = len(teacher_all_errors_df[teacher_all_errors_df["🔥 درجة الخطورة"].str.contains("عالية")])
             med_count = len(teacher_all_errors_df[teacher_all_errors_df["🔥 درجة الخطورة"].str.contains("متوسطة")])
@@ -280,9 +298,8 @@ if mushrif_file and admin_file:
         else:
             st.success("✅ سجلات نظيفة تماماً! لا يوجد أي معلمين لديهم أخطاء في الأسماء أو الهويات.")
             
-    with tab2:
-        st.subheader("🔍 نظام المقترحات الذكي لتصحيح الهويات")
-        if not suggestions_df.empty:
+    with tab2:  # 👈 تأكد أيضاً أن with tab2 محاذية تماماً لما فوقها
+        st.subheader("🔍 نظام المقترحات الذكي لتصحيح الهويات")        if not suggestions_df.empty:
             st.dataframe(suggestions_df, use_container_width=True)
         else:
             st.success("✅ نظيف! لا توجد فروقات أو أخطاء في كتابة الأرقام.")
