@@ -165,7 +165,7 @@ if mushrif_file and admin_file:
                 supervisor_map[id_num]["المشرف"].append(row["اسم المشرف"])
                 supervisor_map[id_num]["الاسم_المدخل"].append(row["اسم المعلم"])
 
-st.write("🧠 تشغيل خوارزمية المطابقة الذكية وتحليل درجات الخطورة...")
+        st.write("🧠 تشغيل خوارزمية المطابقة الذكية وتحليل درجات الخطورة...")
         
         results, suggestions, not_found, error_details = [], [], [], []
         teacher_all_errors = []
