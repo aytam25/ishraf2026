@@ -4,13 +4,101 @@ from difflib import SequenceMatcher
 import io
 
 # ============================================================
-# إعدادات الصفحة
+# إعدادات الصفحة - RTL
 # ============================================================
 st.set_page_config(
     page_title="نظام دمج تقييمات المعلمين - الذكي",
     page_icon="📊",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# ============================================================
+# CSS لتوجيه RTL وتحسين المظهر
+# ============================================================
+st.markdown("""
+<style>
+    /* توجيه الصفحة بالكامل لـ RTL */
+    .main > div {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+    
+    /* توجيه الجداول */
+    .stDataFrame {
+        direction: rtl !important;
+    }
+    .stDataFrame table {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+    
+    /* توجيه العناوين */
+    h1, h2, h3, h4, h5, h6 {
+        text-align: right !important;
+        direction: rtl !important;
+    }
+    
+    /* توجيه التبويبات */
+    .stTabs [data-baseweb="tab-list"] {
+        direction: rtl !important;
+        gap: 2px !important;
+    }
+    .stTabs [data-baseweb="tab"] {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+    
+    /* توجيه الأعمدة */
+    .stColumns {
+        direction: rtl !important;
+    }
+    
+    /* توجيه المقاييس (metrics) */
+    .stMetric {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+    .stMetric label {
+        text-align: right !important;
+    }
+    
+    /* توجيه المعلومات (info, warning, success) */
+    .stAlert {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+    
+    /* توجيه الأزرار */
+    .stButton button {
+        direction: rtl !important;
+    }
+    
+    /* توجيه مربعات الاختيار والقوائم */
+    .stSelectbox, .stMultiSelect {
+        direction: rtl !important;
+    }
+    
+    /* توجيه التوسيع (expander) */
+    .streamlit-expanderHeader {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+    
+    /* توجيه التحميلات */
+    .stDownloadButton {
+        direction: rtl !important;
+    }
+    
+    /* تعديل عرض الجداول */
+    .dataframe {
+        direction: rtl !important;
+    }
+    .dataframe th, .dataframe td {
+        text-align: right !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 st.title("📊 نظام دمج تقييمات المعلمين - المطابقة الذكية")
 st.markdown("---")
@@ -124,16 +212,15 @@ if mushrif_file and admin_file:
         # المطابقة الذكية
         # ============================================================
         
-        results = []           # المعلمين الموجودين في الإدارة
-        not_found = []         # المعلمين غير الموجودين
-        suggestions = []       # اقتراحات تصحيح الرقم
-        error_details = []     # تفاصيل الأخطاء لكل مشرف
+        results = []
+        not_found = []
+        suggestions = []
+        error_details = []
         
         for _, admin_row in admin_df.iterrows():
             admin_id = admin_row["رقم الهوية_standard"]
             admin_name = admin_row["اسم المعلم"]
             
-            # الحالة 1: الرقم موجود في المشرفين
             if admin_id in supervisor_map:
                 data = supervisor_map[admin_id]
                 score = data["التقييم"]
@@ -147,7 +234,6 @@ if mushrif_file and admin_file:
                             statuses.append(f"✅ صحيح عند المشرف {sup}")
                         else:
                             statuses.append(f"⚠️ خطأ في الاسم عند المشرف {sup}")
-                            # تسجيل الخطأ
                             error_details.append({
                                 "المشرف": sup,
                                 "المعلم": admin_name,
@@ -184,9 +270,7 @@ if mushrif_file and admin_file:
                     "📌 الحالة": status
                 })
             
-            # الحالة 2: الرقم غير موجود في المشرفين
             else:
-                # نبحث عن اسم مشابه في HR
                 found_suggestion = False
                 best_match_id = None
                 best_match_name = None
@@ -198,7 +282,6 @@ if mushrif_file and admin_file:
                         id_sim = similarity(admin_id, hr_id)
                         name_sim = similarity(admin_name, hr_name)
                         
-                        # إذا كان الاسم مشابهاً جداً، نعتبره اقتراح تصحيح
                         if name_sim > 0.85 and id_sim > 0.6:
                             if id_sim > best_id_sim:
                                 best_id_sim = id_sim
@@ -208,7 +291,6 @@ if mushrif_file and admin_file:
                                 found_suggestion = True
                 
                 if found_suggestion:
-                    # اقتراح تصحيح الرقم
                     suggestions.append({
                         "👤 الاسم (المدخل)": admin_name,
                         "🆔 الرقم (المدخل)": admin_id,
@@ -218,7 +300,6 @@ if mushrif_file and admin_file:
                         "📊 تشابه الاسم": f"{best_name_sim:.0%}"
                     })
                 else:
-                    # معلم غير موجود تماماً
                     not_found.append({
                         "👤 الاسم (المدخل)": admin_name,
                         "🆔 الرقم (المدخل)": admin_id,
@@ -233,7 +314,6 @@ if mushrif_file and admin_file:
         not_found_df = pd.DataFrame(not_found) if not_found else pd.DataFrame()
         error_details_df = pd.DataFrame(error_details) if error_details else pd.DataFrame()
         
-        # ملخص الأخطاء لكل مشرف
         if not error_details_df.empty:
             supervisor_error_summary = error_details_df.groupby("المشرف").size().reset_index()
             supervisor_error_summary.columns = ["المشرف", "عدد الأخطاء"]
@@ -244,7 +324,6 @@ if mushrif_file and admin_file:
         # عرض النتائج
         # ============================================================
         
-        # إحصائيات سريعة
         col1, col2, col3, col4, col5 = st.columns(5)
         col1.metric("📊 إجمالي المعلمين في HR", len(admin_df))
         col2.metric("✅ موجودون", len(results_df))
@@ -255,7 +334,7 @@ if mushrif_file and admin_file:
         st.markdown("---")
         
         # ============================================================
-        # تبويبات العرض
+        # تبويبات العرض (RTL)
         # ============================================================
         
         tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
@@ -272,7 +351,6 @@ if mushrif_file and admin_file:
             if not results_df.empty:
                 st.dataframe(results_df, use_container_width=True, height=400)
                 
-                # إحصائيات الموجودين
                 col1, col2, col3 = st.columns(3)
                 col1.metric("✅ صحيح", len(results_df[results_df['📌 الحالة'] == "✅ صحيح"]))
                 col2.metric("⚠️ خطأ في الاسم", len(results_df[results_df['📌 الحالة'].str.contains("خطأ", na=False)]))
@@ -305,11 +383,9 @@ if mushrif_file and admin_file:
             if not error_details_df.empty:
                 st.dataframe(error_details_df, use_container_width=True)
                 
-                # ملخص الأخطاء لكل مشرف
                 st.subheader("📊 ملخص الأخطاء لكل مشرف")
                 st.dataframe(supervisor_error_summary, use_container_width=True)
                 
-                # رسم بياني لأخطاء المشرفين
                 if not supervisor_error_summary.empty:
                     st.subheader("📊 رسم بياني لأخطاء المشرفين")
                     st.bar_chart(supervisor_error_summary.set_index("المشرف"))
@@ -322,7 +398,6 @@ if mushrif_file and admin_file:
             col1, col2 = st.columns(2)
             
             with col1:
-                # توزيع الحالات
                 if not results_df.empty:
                     status_counts = results_df['📌 الحالة'].value_counts().reset_index()
                     status_counts.columns = ['الحالة', 'العدد']
@@ -331,7 +406,6 @@ if mushrif_file and admin_file:
                     st.bar_chart(status_counts.set_index('الحالة'))
             
             with col2:
-                # توزيع التقييمات (إن كانت رقمية)
                 if not results_df.empty:
                     numeric_scores = pd.to_numeric(results_df['⭐ التقييم'], errors='coerce')
                     if not numeric_scores.dropna().empty:
@@ -341,7 +415,6 @@ if mushrif_file and admin_file:
                         st.dataframe(score_dist.head(10), use_container_width=True)
                         st.bar_chart(score_dist.set_index('التقييم').head(10))
             
-            # إحصائيات عامة
             st.subheader("📊 إحصائيات عامة")
             stats_data = {
                 "الفئة": ["الموجودون", "اقتراحات تصحيح", "غير موجودين", "أخطاء في الاسم"],
@@ -375,7 +448,6 @@ if mushrif_file and admin_file:
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
             
-            # تحميل كل ملف على حدة
             st.subheader("📥 تحميل ملفات منفصلة")
             
             if not results_df.empty:
@@ -427,7 +499,7 @@ if mushrif_file and admin_file:
                 )
         
         # ============================================================
-        # خيارات التصفية (في الأسفل)
+        # خيارات التصفية
         # ============================================================
         
         with st.expander("🎯 خيارات التصفية والبحث"):
@@ -466,4 +538,4 @@ else:
     """)
 
 st.markdown("---")
-st.caption("📌 نظام دمج تقييمات المعلمين - الإصدار الذكي v3.0")
+st.caption("📌 نظام دمج تقييمات المعلمين - الإصدار الذكي v3.0 (RTL)")
