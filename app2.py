@@ -32,12 +32,19 @@ st.markdown("""
         direction: rtl;
         text-align: right;
     }
-    /* تحسين مظهر العنوان الرئيسي */
+    /* تحسين مظهر العناوين */
     .main-title { 
         font-size: 2.2rem !important; 
         font-weight: bold; 
         color: #1E3A8A; 
         text-align: right; 
+    }
+    .section-title {
+        font-size: 1.5rem !important;
+        font-weight: bold;
+        color: #1E3A8A;
+        margin-top: 15px;
+        margin-bottom: 10px;
     }
     /* تنسيق كروت المؤشرات الحيوية (Metrics) */
     div[data-testid="stMetric"] { 
@@ -170,9 +177,6 @@ if mushrif_file and admin_file:
             admin_id = admin_row["رقم الهوية_standard"]
             admin_name = admin_row["اسم المعلم"]
             
-            # ------------------------------------------------------------
-            # الحالة 1: الرقم متطابق تماماً في السيستم
-            # ------------------------------------------------------------
             if admin_id in supervisor_map:
                 data = supervisor_map[admin_id]
                 score = data["التقييم"]
@@ -186,13 +190,12 @@ if mushrif_file and admin_file:
                         name_sim = similarity(admin_name, ent_name)
                         
                         teacher_all_errors.append({
-                            "👤 اسم المعلم (HR)": admin_name,
-                            "🆔 الهوية الصحيحة (HR)": admin_id,
-                            "📝 الاسم عند المشرف": ent_name,
-                            "🔍 الهوية عند المشرف": admin_id,
-                            "👨‍🏫 المشرف المسؤول": sup,
+                            "اسم المعلم (من الإدارة)": admin_name,
+                            "رقم الهوية": admin_id,
+                            "الاسم المدخل (من المشرف)": ent_name,
+                            "المشرف المسؤول": sup,
+                            "التقييم": score,
                             "📊 تشابه الاسم": f"{name_sim:.0%}",
-                            "📊 تشابه الهوية": "100%",
                             "🚨 طبيعة الخطأ": "خطأ مطبعي في الاسم فقط",
                             "🔥 درجة الخطورة": "ℹ️ منخفضة (خطأ في الاسم فقط)"
                         })
@@ -203,17 +206,14 @@ if mushrif_file and admin_file:
                         })
                 
                 results.append({
-                    "👤 الاسم (HR)": admin_name,
-                    "🆔 الهوية": admin_id,
-                    "⭐ التقييم": score,
-                    "👨‍🏫 المشرف": " / ".join(data["المشرف"]),
-                    "📝 الاسم المدخل": " / ".join(data["الاسم_المدخل"]),
+                    "اسم المعلم (من الإدارة)": admin_name,
+                    "رقم الهوية": admin_id,
+                    "التقييم": score,
+                    "المشرف المسؤول": " / ".join(data["المشرف"]),
+                    "الاسم المدخل (من المشرف)": " / ".join(data["الاسم_المدخل"]),
                     "📌 الحالة": " | ".join(statuses)
                 })
             
-            # ------------------------------------------------------------
-            # الحالة 2: الرقم غير موجود
-            # ------------------------------------------------------------
             else:
                 found_suggestion = False
                 best_match_id, best_match_name = None, None
@@ -235,6 +235,7 @@ if mushrif_file and admin_file:
                 if found_suggestion:
                     idx = supervisor_map[best_match_id]["الاسم_المدخل"].index(best_match_name)
                     sup_person = supervisor_map[best_match_id]["المشرف"][idx]
+                    score = supervisor_map[best_match_id]["التقييم"]
                     
                     if best_name_sim == 1.0:
                         severity_level = "⚠️ متوسطة (خطأ في رقم الهوية)"
@@ -244,30 +245,28 @@ if mushrif_file and admin_file:
                         error_nature = "خطأ مركب (الاسم والهوية معاً)"
                     
                     teacher_all_errors.append({
-                        "👤 اسم المعلم (HR)": admin_name,
-                        "🆔 الهوية الصحيحة (HR)": admin_id,
-                        "📝 الاسم عند المشرف": best_match_name,
-                        "🔍 الهوية عند المشرف": best_match_id,
-                        "👨‍🏫 المشرف المسؤول": sup_person,
+                        "اسم المعلم (من الإدارة)": admin_name,
+                        "رقم الهوية": admin_id,
+                        "الاسم المدخل (من المشرف)": best_match_name,
+                        "المشرف المسؤول": sup_person,
+                        "التقييم": score,
                         "📊 تشابه الاسم": f"{best_name_sim:.0%}",
-                        "📊 تشابه الهوية": f"{best_id_sim:.0%}",
                         "🚨 طبيعة الخطأ": error_nature,
                         "🔥 درجة الخطورة": severity_level
                     })
                     
                     suggestions.append({
-                        "👤 الاسم في (HR)": admin_name,
-                        "🆔 الرقم الصحيح (HR)": admin_id,
-                        "🔍 الرقم الخاطئ عند المشرف": best_match_id,
-                        "📝 الاسم المدخل بواسطة المشرف": best_match_name,
-                        "👨‍🏫 المشرف المسؤول": sup_person,
-                        "📊 تشابه الرقم": f"{best_id_sim:.0%}",
-                        "📊 تشابه الاسم": f"{best_name_sim:.0%}"
+                        "اسم المعلم (من الإدارة)": admin_name,
+                        "رقم الهوية الصحيح": admin_id,
+                        "الرقم الخاطئ عند المشرف": best_match_id,
+                        "الاسم المدخل (من المشرف)": best_match_name,
+                        "المشرف المسؤول": sup_person,
+                        "التقييم": score
                     })
                 else:
                     not_found.append({
-                        "👤 الاسم (HR)": admin_name,
-                        "🆔 الرقم (HR)": admin_id,
+                        "اسم المعلم (من الإدارة)": admin_name,
+                        "رقم الهوية": admin_id,
                         "📌 الملاحظة": "لم يتم رصد أي تقييم أو اسم مشابه من قبل المشرفين"
                     })
         
@@ -288,83 +287,7 @@ if mushrif_file and admin_file:
         
         status.update(label=f"⚡ تمت معالجة المخاطر والمطابقة المركبة بنجاح في {execution_time:.2f} ثانية!", state="complete", expanded=False)
 
-        # ------------------------------------------------------------
-        # 🛠️ [الخطوة 1] بناء أدوات التحكم والفلاتر (خيارات العرض وتصفية المشرف)
-        # ------------------------------------------------------------
-        st.markdown("### 🎛️ خيارات العرض والتصفية")
-        
-        # 1. خيار عرض المشاكل فقط
-        show_problems_only = st.checkbox("⚠️ عرض المعلمين الذين لديهم مشاكل فقط", value=False)
-        
-        # 2. تجهيز قائمة المشرفين للتصفية (نجمع المشرفين الذين لديهم أخطاء)
-        supervisor_options = ["الكل"]
-        if not teacher_all_errors_df.empty:
-            supervisor_options.extend(teacher_all_errors_df["👨‍🏫 المشرف المسؤول"].unique().tolist())
-        
-        st.markdown("#### 👤 تصفية حسب المشرف")
-        selected_sup = st.selectbox("اختر اسم المشرف:", options=supervisor_options)
-        
-        # 3. تطبيق منطق الفلترة بناءً على الاختيارات
-        filtered_df = results_df.copy() if not results_df.empty else pd.DataFrame()
-        
-        # إذا اختار المستخدم عرض المشاكل فقط، نتحول لجدول الأخطاء الشامل
-        if show_problems_only:
-            filtered_df = teacher_all_errors_df.copy() if not teacher_all_errors_df.empty else pd.DataFrame()
-            
-        # تطبيق تصفية اسم المشرف المختار (إذا لم يكن "الكل")
-        if selected_sup != "الكل" and not filtered_df.empty:
-            if show_problems_only:
-                filtered_df = filtered_df[filtered_df["👨‍🏫 المشرف المسؤول"] == selected_sup]
-            else:
-                # في الجدول العام، نبحث عن اسم المشرف داخل النص المدمج
-                filtered_df = filtered_df[filtered_df["👨‍🏫 المشرف"].str.contains(selected_sup, na=False)]
-        
-        # 4. عرض الجدول المصفّى مباشرة للمستخدم مع ميزة الاتجاه الصحيح من اليمين
-        st.markdown(f"📊 **النتائج المصفاة بحسب خياراتك (عدد السجلات: {len(filtered_df)}):**")
-        if not filtered_df.empty:
-            col_order_filt = list(filtered_df.columns)[::-1]
-            col_config_filt = {col: st.column_config.Column(alignment="right") for col in filtered_df.columns}
-            
-            # إذا كان الجدول يحتوي على روابط واتساب، ننسق العمود يميناً
-            if "💬 تنبيه الواتساب" in filtered_df.columns:
-                col_config_filt["💬 تنبيه الواتساب"] = st.column_config.LinkColumn(
-                    "💬 تنبيه الواتساب", display_text="📱 إرسال التنبيه للمشرف", alignment="right"
-                )
-                
-            # تطبيق ستايل التلوين إذا كانت تظهر أعمدة الخطورة
-            if "🔥 درجة الخطورة" in filtered_df.columns:
-                display_df = filtered_df.style.map(style_severity, subset=["🔥 درجة الخطورة"])
-            else:
-                display_df = filtered_df
-                
-            st.dataframe(
-                display_df,
-                column_order=col_order_filt,
-                column_config=col_config_filt,
-                use_container_width=True,
-                height=350,
-                hide_index=False  # تركنا الـ Index يظهر تماماً كما في صورتك المرفقة لسهولة تتبع الأسطر
-            )
-        else:
-            st.info("لا توجد بيانات مطابقة للخيارات المحددة حالياً.")
-        st.markdown("---")
-
-    
-
-    
-    # ============================================================
-    # 5. عرض الإحصائيات الذكية والمؤشرات الحيوية
-    # ============================================================
-    st.markdown("### 📊 نظرة عامة على البيانات")
-    col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("📋 إجمالي معلمين HR", len(admin_df))
-    col2.metric("✅ تم دمجهم بنجاح", len(results_df))
-    col3.metric("🔍 إجمالي المعلمين المخطأ بحقهم", len(teacher_all_errors_df))
-    col4.metric("❌ معلمين بلا تقييم", len(not_found_df))
-    col5.metric("⚠️ أخطاء المشرفين الكلية", len(error_details_df) + len(suggestions_df))
-    
-    st.markdown("---")
-    
+    # دالة تلوين خلايا درجة الخطورة ديناميكياً
     def style_severity(val):
         if "عالية جداً" in str(val):
             return "background-color: #fee2e2; color: #991b1b; font-weight: bold; border: 1px solid #fca5a5;"
@@ -375,7 +298,99 @@ if mushrif_file and admin_file:
         return ""
 
     # ============================================================
-    # 6. تبويبات العرض المطورة مع تطبيق خدعة الـ RTL لكل الجداول
+    # 🎛️ [جديد] منصة التصفية التفاعلية الذكية (تطابق كامل لـ image_288d0d.png)
+    # ============================================================
+    st.markdown('<p class="section-title">⚙️ خيارات العرض والتصفية الحية</p>', unsafe_allow_html=True)
+    
+    col_opt1, col_opt2 = st.columns([1, 2])
+    with col_opt1:
+        st.markdown("**خيارات العرض**")
+        show_problems_only = st.checkbox("⚠️ عرض المعلمين الذين لديهم مشاكل فقط", value=False)
+        
+    with col_opt2:
+        st.markdown("**تصفية حسب المشرف**")
+        supervisor_options = ["الكل"]
+        if not mushrif_df["اسم المشرف"].dropna().empty:
+            supervisor_options.extend(mushrif_df["اسم المشرف"].unique().tolist())
+            
+        selected_sup = st.selectbox("اختر اسم المشرف:", options=supervisor_options)
+
+    # بناء الجدول المصفّح ديناميكياً
+    if show_problems_only:
+        filtered_df = teacher_all_errors_df.copy() if not teacher_all_errors_df.empty else pd.DataFrame()
+        if selected_sup != "الكل" and not filtered_df.empty:
+            filtered_df = filtered_df[filtered_df["المشرف المسؤول"] == selected_sup]
+    else:
+        filtered_df = results_df.copy() if not results_df.empty else pd.DataFrame()
+        if selected_sup != "الكل" and not filtered_df.empty:
+            filtered_df = filtered_df[filtered_df["المشرف المسؤول"].str.contains(selected_sup, na=False)]
+
+    # زر تحميل إكسيل البيانات المصفحة وعرض الجدول
+    if not filtered_df.empty:
+        # ترتيب الأعمدة لتطابق مظهر الصورة تماماً
+        desired_cols = ["الاسم المدخل (من المشرف)", "المشرف المسؤول", "التقييم", "رقم الهوية", "اسم المعلم (من الإدارة)"]
+        existing_cols = [c for c in desired_cols if c in filtered_df.columns]
+        # إضافة الأعمدة الإضافية إن وجدت (مثل درجة الخطورة أو الحالة) في النهاية
+        remaining_cols = [c for c in filtered_df.columns if c not in existing_cols]
+        final_column_layout = existing_cols + remaining_cols
+        
+        filtered_df = filtered_df[final_column_layout]
+
+        # تحضير ملف الـ Excel للتحميل
+        filtered_buffer = io.BytesIO()
+        with pd.ExcelWriter(filtered_buffer, engine='openpyxl') as writer:
+            filtered_df.to_excel(writer, sheet_name="النتائج_المصفاة", index=False)
+        filtered_buffer.seek(0)
+        
+        # تسمية زر التحميل ديناميكياً بناءً على وضع التصفية
+        if show_problems_only:
+            btn_label = f"📥 (Excel) تحميل ملف مشاكل المشرف: {selected_sup}"
+        else:
+            btn_label = f"📥 (Excel) تحميل القائمة الإدارية المكتملة للمشرف: {selected_sup}"
+        if selected_sup == "الكل" and not show_problems_only:
+            btn_label = "📥 (Excel) تحميل القائمة الإدارية المكتملة"
+            
+        st.download_button(
+            label=btn_label,
+            data=filtered_buffer,
+            file_name=f"تقرير_{selected_sup}_{'مشاكل' if show_problems_only else 'عام'}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        
+        # عرض الجدول المصفى الذكي مع خدعة قلب اتجاه الأعمدة والمحاذاة لليمين
+        col_order_filt = list(filtered_df.columns)[::-1]
+        col_config_filt = {col: st.column_config.Column(alignment="right") for col in filtered_df.columns}
+        
+        display_df = filtered_df.style.map(style_severity, subset=["🔥 درجة الخطورة"]) if "🔥 درجة الخطورة" in filtered_df.columns else filtered_df
+        
+        st.dataframe(
+            display_df,
+            column_order=col_order_filt,
+            column_config=col_config_filt,
+            use_container_width=True,
+            height=300,
+            hide_index=False
+        )
+    else:
+        st.info("لا توجد بيانات مطابقة لخيارات التصفية المحددة حالياً.")
+
+    st.markdown("---")
+
+    # ============================================================
+    # 5. عرض الإحصائيات الذكية والمؤشرات الحيوية
+    # ============================================================
+    st.markdown("### 📊 نظرة عامة على البيانات الكلية")
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.metric("📋 إجمالي معلمين HR", len(admin_df))
+    col2.metric("✅ تم دمجهم بنجاح", len(results_df))
+    col3.metric("🔍 إجمالي المعلمين المخطأ بحقهم", len(teacher_all_errors_df))
+    col4.metric("❌ معلمين بلا تقييم", len(not_found_df))
+    col5.metric("⚠️ أخطاء المشرفين الكلية", len(error_details_df) + len(suggestions_df))
+    
+    st.markdown("---")
+
+    # ============================================================
+    # 6. تبويبات العرض المطورة (التقارير التفصيلية المجمعة)
     # ============================================================
     tab1, tab_errors, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "📊 الموجودون والدمج", "🔍 رادار الأخطاء الشاملة للمعلم 🎯", 
@@ -383,119 +398,56 @@ if mushrif_file and admin_file:
         "⚠️ رادار أخطاء المشرفين", "📈 التحليلات والمخططات", "📥 مركز تحميل التقارير"
     ])
     
-    # ------------------------------------------------------------
-    # التبويب 1: الموجودون والدمج
-    # ------------------------------------------------------------
     with tab1:
-        st.subheader("📊 بيان المعلمين المدمجة تقييماتهم")
+        st.subheader("📊 بيان المعلمين المدمجة تقييماتهم كاملاً")
         if not results_df.empty:
             col_order = list(results_df.columns)[::-1]
             col_config = {col: st.column_config.Column(alignment="right") for col in results_df.columns}
-            
-            st.dataframe(
-                results_df,
-                column_order=col_order,
-                column_config=col_config,
-                use_container_width=True,
-                height=400,
-                hide_index=True
-            )
+            st.dataframe(results_df, column_order=col_order, column_config=col_config, use_container_width=True, height=400, hide_index=True)
         else:
             st.info("لا توجد بيانات متاحة للعرض")
             
-    # ------------------------------------------------------------
-    # التبويب 2: رادار الأخطاء الشاملة للمعلم (مع التلوين وزر الواتساب اليميني)
-    # ------------------------------------------------------------
     with tab_errors:
         st.subheader("🔍 كشف مجمع وبؤرة تحليل أخطاء المعلمين")
-        st.info("💡 هذا التبويب يجمع لك كل معلم واجه مشكلة في البيانات المدخلة، ويحتوي على زر لإرسال تنبيه جاهز للمشرف عبر الواتساب.")
-        
         if not teacher_all_errors_df.empty:
             whatsapp_links = []
             for row in teacher_all_errors_df.to_dict(orient='records'):
-                sup = row["👨‍🏫 المشرف المسؤول"]
-                teacher = row["👤 اسم المعلم (HR)"]
+                sup = row["المشرف المسؤول"]
+                teacher = row["اسم المعلم (من الإدارة)"]
                 err_type = row["🚨 طبيعة الخطأ"]
-                
                 msg = f"السلام عليكم أستاذ {sup}، يرجى التكرم بتعديل بيانات المعلم(ة) ({teacher}) في ملف التقييم الخاص بك، حيث تبين وجود ({err_type}). شكراً لتعاونك."
                 encoded_msg = urllib.parse.quote(msg)
                 whatsapp_links.append(f"https://wa.me/?text={encoded_msg}")
             
             teacher_all_errors_df["💬 تنبيه الواتساب"] = whatsapp_links
             
-            # إعداد خدعة الاتجاه والترتيب
             col_order = list(teacher_all_errors_df.columns)[::-1]
             col_config = {col: st.column_config.Column(alignment="right") for col in teacher_all_errors_df.columns}
-            # تخصيص عمود الرابط مع بقاء المحاذاة يميناً
-            col_config["💬 تنبيه الواتساب"] = st.column_config.LinkColumn(
-                "💬 تنبيه الواتساب", 
-                display_text="📱 إرسال التنبيه للمشرف",
-                alignment="right"
-            )
+            col_config["💬 تنبيه الواتساب"] = st.column_config.LinkColumn("💬 تنبيه الواتساب", display_text="📱 إرسال التنبيه للمشرف", alignment="right")
             
             styled_errors_df = teacher_all_errors_df.style.map(style_severity, subset=["🔥 درجة الخطورة"])
-            
-            st.dataframe(
-                styled_errors_df, 
-                column_order=col_order,
-                column_config=col_config,
-                use_container_width=True, 
-                height=400,
-                hide_index=True
-            )
-            
-            c1, c2, c3 = st.columns(3)
-            high_count = len(teacher_all_errors_df[teacher_all_errors_df["🔥 درجة الخطورة"].str.contains("عالية")])
-            med_count = len(teacher_all_errors_df[teacher_all_errors_df["🔥 درجة الخطورة"].str.contains("متوسطة")])
-            low_count = len(teacher_all_errors_df[teacher_all_errors_df["🔥 درجة الخطورة"].str.contains("منخفضة")])
-            
-            c1.metric("🚨 أخطاء مركبة (عالية جداً)", high_count)
-            c2.metric("⚠️ أخطاء هوية (متوسطة)", med_count)
-            c3.metric("ℹ️ أخطاء أسماء (منخفضة)", low_count)
+            st.dataframe(styled_errors_df, column_order=col_order, column_config=col_config, use_container_width=True, height=400, hide_index=True)
         else:
             st.success("✅ سجلات نظيفة تماماً! لا يوجد أي معلمين لديهم أخطاء في الأسماء أو الهويات.")
             
-    # ------------------------------------------------------------
-    # التبويب 3: مقترحات تصحيح الهوية
-    # ------------------------------------------------------------
     with tab2:
         st.subheader("🔍 نظام المقترحات الذكي لتصحيح الهويات")
         if not suggestions_df.empty:
             col_order = list(suggestions_df.columns)[::-1]
             col_config = {col: st.column_config.Column(alignment="right") for col in suggestions_df.columns}
-            
-            st.dataframe(
-                suggestions_df,
-                column_order=col_order,
-                column_config=col_config,
-                use_container_width=True,
-                hide_index=True
-            )
+            st.dataframe(suggestions_df, column_order=col_order, column_config=col_config, use_container_width=True, hide_index=True)
         else:
             st.success("✅ نظيف! لا توجد فروقات أو أخطاء في كتابة الأرقام.")
             
-    # ------------------------------------------------------------
-    # التبويب 4: معلمين بلا تقييم
-    # ------------------------------------------------------------
     with tab3:
         st.subheader("❌ معلمين لم يرفع المشرفون تقييمات لهم")
         if not not_found_df.empty:
             col_order = list(not_found_df.columns)[::-1]
             col_config = {col: st.column_config.Column(alignment="right") for col in not_found_df.columns}
-            
-            st.dataframe(
-                not_found_df,
-                column_order=col_order,
-                column_config=col_config,
-                use_container_width=True,
-                hide_index=True
-            )
+            st.dataframe(not_found_df, column_order=col_order, column_config=col_config, use_container_width=True, hide_index=True)
         else:
             st.success("✅ ممتاز! تم إدخال تقييمات لجميع المعلمين المقيدين في HR.")
             
-    # ------------------------------------------------------------
-    # التبويب 5: رادار أخطاء المشرفين
-    # ------------------------------------------------------------
     with tab4:
         st.subheader("⚠️ سجل أخطاء المشرفين بالتفصيل")
         if not error_details_df.empty:
@@ -504,32 +456,15 @@ if mushrif_file and admin_file:
                 st.markdown("#### 📝 جدول المخالفات والأخطاء المدخلة")
                 col_order_det = list(error_details_df.columns)[::-1]
                 col_config_det = {col: st.column_config.Column(alignment="right") for col in error_details_df.columns}
-                
-                st.dataframe(
-                    error_details_df,
-                    column_order=col_order_det,
-                    column_config=col_config_det,
-                    use_container_width=True,
-                    hide_index=True
-                )
+                st.dataframe(error_details_df, column_order=col_order_det, column_config=col_config_det, use_container_width=True, hide_index=True)
             with col_right:
                 st.markdown("#### 📊 ترتيب المشرفين حسب عدد الأخطاء")
                 col_order_sum = list(supervisor_error_summary.columns)[::-1]
                 col_config_sum = {col: st.column_config.Column(alignment="right") for col in supervisor_error_summary.columns}
-                
-                st.dataframe(
-                    supervisor_error_summary,
-                    column_order=col_order_sum,
-                    column_config=col_config_sum,
-                    use_container_width=True,
-                    hide_index=True
-                )
+                st.dataframe(supervisor_error_summary, column_order=col_order_sum, column_config=col_config_sum, use_container_width=True, hide_index=True)
         else:
             st.success("✅ مذهل! جميع الأسماء المدخلة متطابقة.")
             
-    # ------------------------------------------------------------
-    # التبويب 6: المخططات والتحليلات
-    # ------------------------------------------------------------
     with tab5:
         st.subheader("📈 رادار المخططات البيانية والتحليل الإحصائي")
         if not results_df.empty:
@@ -547,17 +482,13 @@ if mushrif_file and admin_file:
         else:
             st.info("قم برفع ملفات تحتوي على بيانات صالحة لتوليد المخططات.")
             
-    # ------------------------------------------------------------
-    # التبويب 7: مركز الاستخراج وتحميل التقارير
-    # ------------------------------------------------------------
     with tab6:
         st.subheader("📥 مركز الاستخراج وتحميل التقارير المجمعة والمنفصلة")
-        
         output_buffer = io.BytesIO()
         with pd.ExcelWriter(output_buffer, engine='openpyxl') as writer:
             if not results_df.empty: results_df.to_excel(writer, sheet_name="الموجودين_والمدمجين", index=False)
             if not teacher_all_errors_df.empty: teacher_all_errors_df.to_excel(writer, sheet_name="سجل_مخاطر_أخطاء_المعلمين", index=False)
-            if not suggestions_df.empty: suggestions_df.to_excel(writer, sheet_name="اقتраحات_تعديل_الهويات", index=False)
+            if not suggestions_df.empty: suggestions_df.to_excel(writer, sheet_name="اقتراحات_تعديل_الهويات", index=False)
             if not not_found_df.empty: not_found_df.to_excel(writer, sheet_name="معلمين_بدون_تقييم", index=False)
             if not error_details_df.empty: error_details_df.to_excel(writer, sheet_name="تفاصيل_أخطاء_المشرفين", index=False)
         output_buffer.seek(0)
@@ -573,4 +504,4 @@ else:
     st.info("👈 يرجى رفع ملف المشرفين وملف الشؤون الإدارية (HR) من القائمة العلوية للبدء فورا.")
 
 st.markdown("---")
-st.caption("📌 نظام دمج تقييمات المعلمين الفائق - الإصدار الذكي v5.2 (مدمج برادار المخاطر والأخطاء المركبة والتلوين والدعم الكامل لـ RTL)")
+st.caption("📌 نظام دمج تقييمات المعلمين الفائق - الإصدار الذكي v5.3 (مدمج برادار المخاطر والأخطاء المركبة والتلوين والدعم الكامل لـ RTL وعارض المشاكل)")
