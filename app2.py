@@ -368,7 +368,10 @@ if mushrif_file and admin_file:
     with tab1:
         st.subheader("📊 بيان المعلمين المدمجة تقييماتهم")
         if not results_df.empty:
-            st.dataframe(results_df, use_container_width=True, height=400)
+            # تحويل الـ DataFrame إلى HTML مع تطبيق الفئة المخصصة وبدون عمود الـ Index
+            html_table = results_df.to_html(index=False, classes='custom-rtl-table')
+            # عرض الجدول داخل الحاوية المخصصة للـ RTL
+            st.markdown(f'<div class="rtl-table-container">{html_table}</div>', unsafe_allow_html=True)
         else:
             st.info("لا توجد بيانات متاحة للعرض")
             
