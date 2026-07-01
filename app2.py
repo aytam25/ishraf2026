@@ -36,17 +36,17 @@ with col2:
 
 if mushrif_file and admin_file:
     
-    # استخدام st.status كإضافة إبداعية لتتبع الخطوات بدقة واحترافية
+    # استخدام st.status لتتبع خطوات المعالجة بدقة
     with st.status("🔄 جاري معالجة البيانات وتطبيق خوارزميات المطابقة...", expanded=True) as status:
         
         start_time = time.time()
         
-        st.write("⏳ قراءة وتحليل ملفات Excel دخل الذاكرة...")
+        st.write("⏳ قراءة وتحليل ملفات Excel داخل الذاكرة...")
         # قراءة الملفات مباشرة مع تحسين الأنواع
         mushrif_df = pd.read_excel(mushrif_file, dtype={'التقييم': str})
         admin_df = pd.read_excel(admin_file)
         
-        # توحيد أسماء الأعمدة
+        # توحيد أسماء الأعمدة لضمان عدم حدوث أخطاء كشافات
         mushrif_df = mushrif_df.rename(columns={
             "الاسم": "اسم المعلم", "رقم الهوية": "رقم الهوية",
             "التقييم": "التقييم", "المشرف": "اسم المشرف"
@@ -56,20 +56,23 @@ if mushrif_file and admin_file:
         })
         
         st.write("🧼 تنظيف وتطبيع أرقام الهوية والأسماء برمجياً (Vectorized)...")
-        # بدلاً من .apply الـ بطيئة، تم استخدام هندسة المصفوفات السريعة في Pandas
+        # استخدام هندسة المصفوفات الآمنة في Pandas لمنع الـ TypeError نهائياً
         for df in [mushrif_df, admin_df]:
             # تنظيف وتوحيد رقم الهوية وعزل الكسور إن وجدت دفعة واحدة
             df["رقم الهوية_standard"] = df["رقم الهوية"].astype(str).str.strip().str.split('.').str[0]
             df["رقم الهوية_standard"] = df["رقم الهوية_standard"].replace(['nan', 'None', '<NA>'], '')
-            # حشو الأرقام المكونة من 8 خانات بصفر في البداية لتصبح 9 خانات
-            df["رقم الهوية_standard"] = df["رقم الهوية_standard"].apply(lambda x: '0' + x if len(x) == 8 and x.isdigit() else x)
-            # تنظيف النصوص والأسماء من الفراغات الجانبية
+            
+            # الحل الجذري هنا: حشو الأرقام المكونة من 8 خانات بصفر باستخدام قناع موجه (Vectorized Mask) آمن تماماً
+            mask = (df["رقم الهوية_standard"].str.len() == 8) & (df["رقم الهوية_standard"].str.isdigit())
+            df.loc[mask, "رقم الهوية_standard"] = '0' + df.loc[mask, "رقم الهوية_standard"]
+            
+            # تنظيف النصوص والأسماء من الفراغات الجانبية والقيم الفارغة
             df["اسم المعلم"] = df["اسم المعلم"].fillna("").astype(str).str.strip()
 
         # دالة قياس نسبة التشابه المحسّنة (سريعة جداً عند التطابق التام)
         def similarity(a, b):
             if not a or not b: return 0
-            if a == b: return 1.0  # اختصار سريع جداً يوفر وقت المعالجة
+            if a == b: return 1.0  # اختصار يوفر طاقة المعالجة الزمنية للأسماء المتطابقة
             return SequenceMatcher(None, a, b).ratio()
         
         st.write("🏗️ بناء كشافات البحث السريع لملفات المشرفين...")
@@ -98,7 +101,7 @@ if mushrif_file and admin_file:
         admin_ids_set = set(admin_df["رقم الهوية_standard"].unique())
         unmatched_supervisor_ids = [sid for sid in supervisor_map if sid not in admin_ids_set]
         
-        # حلقة معالجة أساسية رشيقة وسريعة جداً الخطية O(N)
+        # حلقة معالجة أساسية رشيقة وسريعة جداً O(N)
         for admin_row in admin_df.to_dict(orient='records'):
             admin_id = admin_row["رقم الهوية_standard"]
             admin_name = admin_row["اسم المعلم"]
@@ -128,7 +131,7 @@ if mushrif_file and admin_file:
                     "📌 الحالة": " | ".join(statuses)
                 })
             
-            # الحالة 2: الرقم غير موجود (هنا يكمن الإبداع والتسريع الذكي بـ فحص الهويات المتعثرة فقط)
+            # الحالة 2: الرقم غير موجود في الكشاف (البحث الذكي المقيد بالفروقات البسيطة)
             else:
                 found_suggestion = False
                 best_match_id, best_match_name = None, None
@@ -138,7 +141,7 @@ if mushrif_file and admin_file:
                 for sup_id in unmatched_supervisor_ids:
                     id_sim = similarity(admin_id, sup_id)
                     if id_sim <= 0.6: 
-                        continue  # تخطي فوري إذا كان الرقم مختلف تماماً لتوفير الوقت
+                        continue  # تخطي فوري لتوفير الوقت إذا كانت الأرقام متباعدة جداً
                     
                     for sup_name in supervisor_map[sup_id]["الاسم_المدخل"]:
                         name_sim = similarity(admin_name, sup_name)
@@ -218,7 +221,7 @@ if mushrif_file and admin_file:
             
     with tab2:
         st.subheader("🔍 نظام المقترحات الذكي لتصحيح الهويات")
-        st.info("📌 الخوارزمية رصدت هذه الحالات كـ (أخطاء رقيمة مطبعية) قام بها المشرفون، حيث تطابق الاسم بنسبة عالية جداً واختلف الرقم قليلاً.")
+        st.info("📌 الخوارزمية رصدت هذه الحالات كـ (أخطاء رقمية مطبعية) قام بها المشرفون، حيث تطابق الاسم بنسبة عالية جداً واختلف الرقم قليلاً.")
         if not suggestions_df.empty:
             st.dataframe(suggestions_df, use_container_width=True)
         else:
@@ -284,7 +287,6 @@ if mushrif_file and admin_file:
         
         st.markdown("---")
         st.markdown("#### 💾 استخراج تقارير منفصلة فرعية")
-        # أزرار تحميل منفصلة فائقة الخفة
         dl_col1, dl_col2, dl_col3 = st.columns(3)
         
         if not results_df.empty:
@@ -312,4 +314,4 @@ else:
     """)
 
 st.markdown("---")
-st.caption("📌 نظام دمج تقييمات المعلمين الفائق - الإصدار المطور والمسرّع v4.0 (إنتاجية قصوى)")
+st.caption("📌 نظام دمج تقييمات المعلمين الفائق - الإصدار المطور والمسرّع v4.1 (مصحح بالكامل وآمن)")
