@@ -17,6 +17,9 @@ st.set_page_config(
 # ============================================================
 # 2. حقن دلالات التنسيق الكامل لتأمين الواجهة العربي (RTL)
 # ============================================================
+# ============================================================
+# 2. حقن دلالات التنسيق الكامل لتأمين الواجهة العربي ورادار الجداول (RTL)
+# ============================================================
 st.markdown("""
     <style>
     /* تطبيق اتجاه القراءة والكتابة من اليمين إلى اليسار على كامل التطبيق */
@@ -51,6 +54,48 @@ st.markdown("""
     .stAlert, div[data-testid="stFileUploader"] {
         direction: rtl;
         text-align: right;
+    }
+    /* إجبار حاويات الجداول التفاعلية على دعم الاتجاه العربي وعكس أشرطة التمرير */
+    div[data-testid="stDataFrame"], div[data-testid="stDataFrame"] > div {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+            
+    /* ⚡ التعديل الجديد مدمج هنا: تنسيق مخصص للجداول لتصبح RTL حقيقي وتبدأ الأعمدة من اليمين */
+    .rtl-table-container {
+        direction: rtl !important;
+        text-align: right !important;
+        overflow-x: auto;
+        width: 100%;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+    }
+    table.custom-rtl-table {
+        width: 100%;
+        border-collapse: collapse;
+        direction: rtl !important;
+        text-align: right !important;
+        font-family: sans-serif;
+    }
+    table.custom-rtl-table th {
+        background-color: #1E3A8A;
+        color: white;
+        padding: 12px;
+        font-weight: bold;
+        text-align: right !important;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    table.custom-rtl-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e2e8f0;
+        text-align: right !important;
+        color: #334155;
+    }
+    table.custom-rtl-table tr:nth-child(even) {
+        background-color: #f8fafc;
+    }
+    table.custom-rtl-table tr:hover {
+        background-color: #f1f5f9;
     }
     </style>
 """, unsafe_allow_html=True)
