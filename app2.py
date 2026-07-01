@@ -365,13 +365,25 @@ if mushrif_file and admin_file:
         "⚠️ رادار أخطاء المشرفين", "📈 التحليلات والمخططات", "📥 مركز تحميل التقارير"
     ])
     
-    with tab1:
+with tab1:
         st.subheader("📊 بيان المعلمين المدمجة تقييماتهم")
         if not results_df.empty:
-            # تحويل الـ DataFrame إلى HTML مع تطبيق الفئة المخصصة وبدون عمود الـ Index
-            html_table = results_df.to_html(index=False, classes='custom-rtl-table')
-            # عرض الجدول داخل الحاوية المخصصة للـ RTL
-            st.markdown(f'<div class="rtl-table-container">{html_table}</div>', unsafe_allow_html=True)
+            # 1. عكس ترتيب عرض الأعمدة تلقائياً لتبدأ من اليمين وتتجه لليسار
+            arabic_column_order = list(results_df.columns)[::-1]
+            
+            # 2. إجبار جميع الأعمدة على محاذاة نصوصها وعناوينها إلى اليمين
+            columns_configuration = {
+                col: st.column_config.Column(alignment="right") for col in results_df.columns
+            }
+            
+            # 3. عرض الجدول الذكي الأصلي بكامل ميزاته التفاعلية
+            st.dataframe(
+                results_df,
+                column_order=arabic_column_order,
+                column_config=columns_configuration,
+                use_container_width=True,
+                hide_index=True
+            )
         else:
             st.info("لا توجد بيانات متاحة للعرض")
             
