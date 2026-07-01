@@ -297,84 +297,6 @@ if mushrif_file and admin_file:
             return "background-color: #e0f2fe; color: #075985; border: 1px solid #bae6fd;"
         return ""
 
-    # ============================================================
-    # 🎛️ [جديد] منصة التصفية التفاعلية الذكية (تطابق كامل لـ image_288d0d.png)
-    # ============================================================
-    st.markdown('<p class="section-title">⚙️ خيارات العرض والتصفية الحية</p>', unsafe_allow_html=True)
-    
-    col_opt1, col_opt2 = st.columns([1, 2])
-    with col_opt1:
-        st.markdown("**خيارات العرض**")
-        show_problems_only = st.checkbox("⚠️ عرض المعلمين الذين لديهم مشاكل فقط", value=False)
-        
-    with col_opt2:
-        st.markdown("**تصفية حسب المشرف**")
-        supervisor_options = ["الكل"]
-        if not mushrif_df["اسم المشرف"].dropna().empty:
-            supervisor_options.extend(mushrif_df["اسم المشرف"].unique().tolist())
-            
-        selected_sup = st.selectbox("اختر اسم المشرف:", options=supervisor_options)
-
-    # بناء الجدول المصفّح ديناميكياً
-    if show_problems_only:
-        filtered_df = teacher_all_errors_df.copy() if not teacher_all_errors_df.empty else pd.DataFrame()
-        if selected_sup != "الكل" and not filtered_df.empty:
-            filtered_df = filtered_df[filtered_df["المشرف المسؤول"] == selected_sup]
-    else:
-        filtered_df = results_df.copy() if not results_df.empty else pd.DataFrame()
-        if selected_sup != "الكل" and not filtered_df.empty:
-            filtered_df = filtered_df[filtered_df["المشرف المسؤول"].str.contains(selected_sup, na=False)]
-
-    # زر تحميل إكسيل البيانات المصفحة وعرض الجدول
-    if not filtered_df.empty:
-        # ترتيب الأعمدة لتطابق مظهر الصورة تماماً
-        desired_cols = ["الاسم المدخل (من المشرف)", "المشرف المسؤول", "التقييم", "رقم الهوية", "اسم المعلم (من الإدارة)"]
-        existing_cols = [c for c in desired_cols if c in filtered_df.columns]
-        # إضافة الأعمدة الإضافية إن وجدت (مثل درجة الخطورة أو الحالة) في النهاية
-        remaining_cols = [c for c in filtered_df.columns if c not in existing_cols]
-        final_column_layout = existing_cols + remaining_cols
-        
-        filtered_df = filtered_df[final_column_layout]
-
-        # تحضير ملف الـ Excel للتحميل
-        filtered_buffer = io.BytesIO()
-        with pd.ExcelWriter(filtered_buffer, engine='openpyxl') as writer:
-            filtered_df.to_excel(writer, sheet_name="النتائج_المصفاة", index=False)
-        filtered_buffer.seek(0)
-        
-        # تسمية زر التحميل ديناميكياً بناءً على وضع التصفية
-        if show_problems_only:
-            btn_label = f"📥 (Excel) تحميل ملف مشاكل المشرف: {selected_sup}"
-        else:
-            btn_label = f"📥 (Excel) تحميل القائمة الإدارية المكتملة للمشرف: {selected_sup}"
-        if selected_sup == "الكل" and not show_problems_only:
-            btn_label = "📥 (Excel) تحميل القائمة الإدارية المكتملة"
-            
-        st.download_button(
-            label=btn_label,
-            data=filtered_buffer,
-            file_name=f"تقرير_{selected_sup}_{'مشاكل' if show_problems_only else 'عام'}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        
-        # عرض الجدول المصفى الذكي مع خدعة قلب اتجاه الأعمدة والمحاذاة لليمين
-        col_order_filt = list(filtered_df.columns)[::-1]
-        col_config_filt = {col: st.column_config.Column(alignment="right") for col in filtered_df.columns}
-        
-        display_df = filtered_df.style.map(style_severity, subset=["🔥 درجة الخطورة"]) if "🔥 درجة الخطورة" in filtered_df.columns else filtered_df
-        
-        st.dataframe(
-            display_df,
-            column_order=col_order_filt,
-            column_config=col_config_filt,
-            use_container_width=True,
-            height=300,
-            hide_index=False
-        )
-    else:
-        st.info("لا توجد بيانات مطابقة لخيارات التصفية المحددة حالياً.")
-
-    st.markdown("---")
 
     # ============================================================
     # 5. عرض الإحصائيات الذكية والمؤشرات الحيوية
@@ -502,6 +424,89 @@ if mushrif_file and admin_file:
 
 else:
     st.info("👈 يرجى رفع ملف المشرفين وملف الشؤون الإدارية (HR) من القائمة العلوية للبدء فورا.")
+
+    st.markdown("---")
+    st.markdown("---")
+    # ============================================================
+    # 🎛️ [جديد] منصة التصفية التفاعلية الذكية (تطابق كامل لـ image_288d0d.png)
+    # ============================================================
+    st.markdown('<p class="section-title">⚙️ خيارات العرض والتصفية الحية</p>', unsafe_allow_html=True)
+    
+    col_opt1, col_opt2 = st.columns([1, 2])
+    with col_opt1:
+        st.markdown("**خيارات العرض**")
+        show_problems_only = st.checkbox("⚠️ عرض المعلمين الذين لديهم مشاكل فقط", value=False)
+        
+    with col_opt2:
+        st.markdown("**تصفية حسب المشرف**")
+        supervisor_options = ["الكل"]
+        if not mushrif_df["اسم المشرف"].dropna().empty:
+            supervisor_options.extend(mushrif_df["اسم المشرف"].unique().tolist())
+            
+        selected_sup = st.selectbox("اختر اسم المشرف:", options=supervisor_options)
+
+    # بناء الجدول المصفّح ديناميكياً
+    if show_problems_only:
+        filtered_df = teacher_all_errors_df.copy() if not teacher_all_errors_df.empty else pd.DataFrame()
+        if selected_sup != "الكل" and not filtered_df.empty:
+            filtered_df = filtered_df[filtered_df["المشرف المسؤول"] == selected_sup]
+    else:
+        filtered_df = results_df.copy() if not results_df.empty else pd.DataFrame()
+        if selected_sup != "الكل" and not filtered_df.empty:
+            filtered_df = filtered_df[filtered_df["المشرف المسؤول"].str.contains(selected_sup, na=False)]
+
+    # زر تحميل إكسيل البيانات المصفحة وعرض الجدول
+    if not filtered_df.empty:
+        # ترتيب الأعمدة لتطابق مظهر الصورة تماماً
+        desired_cols = ["الاسم المدخل (من المشرف)", "المشرف المسؤول", "التقييم", "رقم الهوية", "اسم المعلم (من الإدارة)"]
+        existing_cols = [c for c in desired_cols if c in filtered_df.columns]
+        # إضافة الأعمدة الإضافية إن وجدت (مثل درجة الخطورة أو الحالة) في النهاية
+        remaining_cols = [c for c in filtered_df.columns if c not in existing_cols]
+        final_column_layout = existing_cols + remaining_cols
+        
+        filtered_df = filtered_df[final_column_layout]
+
+        # تحضير ملف الـ Excel للتحميل
+        filtered_buffer = io.BytesIO()
+        with pd.ExcelWriter(filtered_buffer, engine='openpyxl') as writer:
+            filtered_df.to_excel(writer, sheet_name="النتائج_المصفاة", index=False)
+        filtered_buffer.seek(0)
+        
+        # تسمية زر التحميل ديناميكياً بناءً على وضع التصفية
+        if show_problems_only:
+            btn_label = f"📥 (Excel) تحميل ملف مشاكل المشرف: {selected_sup}"
+        else:
+            btn_label = f"📥 (Excel) تحميل القائمة الإدارية المكتملة للمشرف: {selected_sup}"
+        if selected_sup == "الكل" and not show_problems_only:
+            btn_label = "📥 (Excel) تحميل القائمة الإدارية المكتملة"
+            
+        st.download_button(
+            label=btn_label,
+            data=filtered_buffer,
+            file_name=f"تقرير_{selected_sup}_{'مشاكل' if show_problems_only else 'عام'}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        
+        # عرض الجدول المصفى الذكي مع خدعة قلب اتجاه الأعمدة والمحاذاة لليمين
+        col_order_filt = list(filtered_df.columns)[::-1]
+        col_config_filt = {col: st.column_config.Column(alignment="right") for col in filtered_df.columns}
+        
+        display_df = filtered_df.style.map(style_severity, subset=["🔥 درجة الخطورة"]) if "🔥 درجة الخطورة" in filtered_df.columns else filtered_df
+        
+        st.dataframe(
+            display_df,
+            column_order=col_order_filt,
+            column_config=col_config_filt,
+            use_container_width=True,
+            height=300,
+            hide_index=False
+        )
+    else:
+        st.info("لا توجد بيانات مطابقة لخيارات التصفية المحددة حالياً.")
+
+    st.markdown("---")
+
+
 
 st.markdown("---")
 st.caption("📌 نظام دمج تقييمات المعلمين الفائق - الإصدار الذكي v5.3 (مدمج برادار المخاطر والأخطاء المركبة والتلوين والدعم الكامل لـ RTL وعارض المشاكل)")
