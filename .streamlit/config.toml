@@ -1,0 +1,6 @@
+[theme]
+primaryColor = "#1E3A8A"              # الأزرق الداكن للعناصر الأساسية
+backgroundColor = "#f8fafc"           # خلفية فاتحة
+secondaryBackgroundColor = "#e2e8f0"  # خلفية البطاقات
+textColor = "#000000"                 # لون النص
+font = "sans serif"                   # نوع الخط
