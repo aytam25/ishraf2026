@@ -12,7 +12,7 @@ st.set_page_config(
     page_icon="📊",
     layout="wide"
 )
-
+    
 # تحسين المظهر العام باستخدام CSS مخصص بسيط ومتوافق
 st.markdown("""
     <style>
@@ -259,38 +259,14 @@ if mushrif_file and admin_file:
         else:
             st.info("لا توجد بيانات متاحة للعرض")
             
-with tab_errors:
+ with tab_errors:
         st.subheader("🔍 كشف مجمع وبؤرة تحليل أخطاء المعلمين")
-        st.info("💡 هذا التبويب يجمع لك كل معلم واجه مشكلة في البيانات المدخلة، ويحتوي على زر لإرسال تنبيه جاهز للمشرف عبر الواتساب.")
+        st.info("💡 هذا التبويب يجمع لك كل معلم واجه مشكلة في البيانات المدخلة من قبل المشرفين، ويصنفها لك بحسب الخطورة (سواء خطأ في الاسم، أو الهوية، أو أخطاء مركبة معاً كحالة الأستاذة سناء صابر).")
         
         if not teacher_all_errors_df.empty:
-            # 1. توليد روابط الواتساب الذكية بدون أرقام هواتف (تعتمد على اختيار جهة الاتصال)
-            whatsapp_links = []
-            for row in teacher_all_errors_df.to_dict(orient='records'):
-                sup = row["👨‍🏫 المشرف المسؤول"]
-                teacher = row["👤 اسم المعلم (HR)"]
-                err_type = row["🚨 طبيعة الخطأ"]
-                
-                # صياغة نص الرسالة التلقائية
-                msg = f"السلام عليكم أستاذ {sup}، يرجى التكرم بتعديل بيانات المعلم(ة) ({teacher}) في ملف التقييم الخاص بك، حيث تبين وجود ({err_type}). شكراً لتعاونك."
-                encoded_msg = urllib.parse.quote(msg)
-                whatsapp_links.append(f"https://wa.me/?text={encoded_msg}")
-            
-            # إضافة العمود الجديد للـ DataFrame
-            teacher_all_errors_df["💬 تنبيه الواتساب"] = whatsapp_links
-            
             # تطبيق التلوين الاحترافي على عمود درجة الخطورة
-            styled_errors_df = teacher_all_errors_df.style.map(style_severity, subset=["🔥 درجة الخطورة"])
-            
-            # عرض الجدول مع تحويل عمود الواتساب إلى رابط تفاعلي قابل للنقر
-            st.dataframe(
-                styled_errors_df, 
-                use_container_width=True, 
-                height=400,
-                column_config={
-                    "💬 تنبيه الواتساب": st.column_config.LinkColumn("💬 تنبيه الواتساب", display_text="📱 إرسال التنبيه للمشرف")
-                }
-            )
+            styled_errors_df = teacher_all_errors_df.style.applymap(style_severity, subset=["🔥 درجة الخطورة"])
+            st.dataframe(styled_errors_df, use_container_width=True, height=400)
             
             # إحصائيات سريعة للأخطاء
             c1, c2, c3 = st.columns(3)
@@ -303,6 +279,7 @@ with tab_errors:
             c3.metric("ℹ️ أخطاء أسماء (منخفضة)", low_count)
         else:
             st.success("✅ سجلات نظيفة تماماً! لا يوجد أي معلمين لديهم أخطاء في الأسماء أو الهويات.")
+            
     with tab2:
         st.subheader("🔍 نظام المقترحات الذكي لتصحيح الهويات")
         if not suggestions_df.empty:
