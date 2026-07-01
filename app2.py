@@ -494,9 +494,6 @@ if mushrif_file and admin_file:
         
         if show_problems_only:
             btn_label = f"📥 (Excel) تحميل ملف مشاكل المشرف: {selected_sup}"
-            st.link_button(f"📱 إرسال كشف الأخطاء المجمع عبر واتساب ({len(sup_errors)} ملاحظات)", whatsapp_url, use_container_width=True)
-            st.markdown("---")
-
         else:
             btn_label = f"📥 (Excel) تحميل بيان المشرف: {selected_sup}"
         if selected_sup == "الكل" and not show_problems_only:
