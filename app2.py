@@ -421,18 +421,17 @@ if mushrif_file and admin_file:
             file_name="التقرير_الشامل_لدمج_المعلمين_ورادار_المخاطر.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-else:
-    st.info("👈 يرجى رفع ملف المشرفين وملف الشؤون الإدارية (HR) من القائمة العلوية للبدء فورا.")
- 
+
     # ============================================================
-    # 🎛️ [جديد] منصة التصفية التفاعلية الذكية (تطابق كامل لـ image_288d0d.png)
+    # 🎛️ [مكان جديد] منصة التصفية التفاعلية الذكية في أسفل الصفحة
     # ============================================================
-    st.markdown('<p class="section-title">⚙️ خيارات العرض والتصفية الحية</p>', unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown('<p class="section-title">⚙️ خيارات العرض والتصفية الحية (حسب المشرف والمشاكل)</p>', unsafe_allow_html=True)
     
     col_opt1, col_opt2 = st.columns([1, 2])
     with col_opt1:
         st.markdown("**خيارات العرض**")
-        show_problems_only = st.checkbox("⚠️ عرض المعلمين الذين لديهم مشاكل فقط", value=False)
+        show_problems_only = st.checkbox("⚠️ عرض المعلمين الذين لديهم مشاكل فقط", value=False, key="filter_prob_key")
         
     with col_opt2:
         st.markdown("**تصفية حسب المشرف**")
@@ -440,7 +439,7 @@ else:
         if not mushrif_df["اسم المشرف"].dropna().empty:
             supervisor_options.extend(mushrif_df["اسم المشرف"].unique().tolist())
             
-        selected_sup = st.selectbox("اختر اسم المشرف:", options=supervisor_options)
+        selected_sup = st.selectbox("اختر اسم المشرف:", options=supervisor_options, key="filter_sup_key")
 
     # بناء الجدول المصفّح ديناميكياً
     if show_problems_only:
@@ -452,42 +451,42 @@ else:
         if selected_sup != "الكل" and not filtered_df.empty:
             filtered_df = filtered_df[filtered_df["المشرف المسؤول"].str.contains(selected_sup, na=False)]
 
-    # زر تحميل إكسيل البيانات المصفحة وعرض الجدول
     if not filtered_df.empty:
-        # ترتيب الأعمدة لتطابق مظهر الصورة تماماً
+        # ترتيب الأعمدة لتطابق مظهر الصورة تماماً (RTL)
         desired_cols = ["الاسم المدخل (من المشرف)", "المشرف المسؤول", "التقييم", "رقم الهوية", "اسم المعلم (من الإدارة)"]
         existing_cols = [c for c in desired_cols if c in filtered_df.columns]
-        # إضافة الأعمدة الإضافية إن وجدت (مثل درجة الخطورة أو الحالة) في النهاية
         remaining_cols = [c for c in filtered_df.columns if c not in existing_cols]
-        final_column_layout = existing_cols + remaining_cols
-        
-        filtered_df = filtered_df[final_column_layout]
+        filtered_df = filtered_df[existing_cols + remaining_cols]
 
-        # تحضير ملف الـ Excel للتحميل
         filtered_buffer = io.BytesIO()
         with pd.ExcelWriter(filtered_buffer, engine='openpyxl') as writer:
-            filtered_df.to_excel(writer, sheet_name="النتائج_المصفاة", index=False)
+            export_df = filtered_df.copy()
+            if "💬 تنبيه الواتساب" in export_df.columns:
+                export_df = export_df.drop(columns=["💬 تنبيه الواتساب"])
+            export_df.to_excel(writer, sheet_name="النتائج_المصفاة", index=False)
         filtered_buffer.seek(0)
         
-        # تسمية زر التحميل ديناميكياً بناءً على وضع التصفية
         if show_problems_only:
             btn_label = f"📥 (Excel) تحميل ملف مشاكل المشرف: {selected_sup}"
         else:
-            btn_label = f"📥 (Excel) تحميل القائمة الإدارية المكتملة للمشرف: {selected_sup}"
+            btn_label = f"📥 (Excel) تحميل بيان المشرف: {selected_sup}"
         if selected_sup == "الكل" and not show_problems_only:
-            btn_label = "📥 (Excel) تحميل القائمة الإدارية المكتملة"
+            btn_label = "📥 (Excel) تحميل القائمة المصفاة المكتملة"
             
         st.download_button(
             label=btn_label,
             data=filtered_buffer,
             file_name=f"تقرير_{selected_sup}_{'مشاكل' if show_problems_only else 'عام'}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="download_filtered_btn"
         )
         
-        # عرض الجدول المصفى الذكي مع خدعة قلب اتجاه الأعمدة والمحاذاة لليمين
         col_order_filt = list(filtered_df.columns)[::-1]
         col_config_filt = {col: st.column_config.Column(alignment="right") for col in filtered_df.columns}
         
+        if "💬 تنبيه الواتساب" in filtered_df.columns:
+            col_config_filt["💬 تنبيه الواتساب"] = st.column_config.LinkColumn("💬 تنبيه الواتساب", display_text="📱 إرسال التنبيه للمشرف", alignment="right")
+            
         display_df = filtered_df.style.map(style_severity, subset=["🔥 درجة الخطورة"]) if "🔥 درجة الخطورة" in filtered_df.columns else filtered_df
         
         st.dataframe(
@@ -498,8 +497,11 @@ else:
             height=300,
             hide_index=False
         )
-else:
+    else:
         st.info("لا توجد بيانات مطابقة لخيارات التصفية المحددة حالياً.")
- 
+
+else:
+    st.info("👈 يرجى رفع ملف المشرفين وملف الشؤون الإدارية (HR) من القائمة العلوية للبدء فورا.")
+
 st.markdown("---")
-st.caption("📌 نظام دمج تقييمات المعلمين الفائق - الإصدار الذكي v5.3 (مدمج برادار المخاطر والأخطاء المركبة والتلوين والدعم الكامل لـ RTL وعارض المشاكل)")
+st.caption("📌 نظام دمج تقييمات المعلمين الفائق - الإصدار الذكي v5.3")
