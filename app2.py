@@ -127,6 +127,7 @@ if mushrif_file and admin_file:
         results = []           # المعلمين الموجودين في الإدارة
         not_found = []         # المعلمين غير الموجودين
         suggestions = []       # اقتراحات تصحيح الرقم
+        error_details = []     # تفاصيل الأخطاء لكل مشرف
         
         for _, admin_row in admin_df.iterrows():
             admin_id = admin_row["رقم الهوية_standard"]
@@ -146,6 +147,15 @@ if mushrif_file and admin_file:
                             statuses.append(f"✅ صحيح عند المشرف {sup}")
                         else:
                             statuses.append(f"⚠️ خطأ في الاسم عند المشرف {sup}")
+                            # تسجيل الخطأ
+                            error_details.append({
+                                "المشرف": sup,
+                                "المعلم": admin_name,
+                                "الرقم": admin_id,
+                                "الاسم المدخل": ent_name,
+                                "الاسم الصحيح": admin_name,
+                                "نوع الخطأ": "خطأ في الاسم"
+                            })
                     status = " | ".join(statuses)
                     display_supervisor = " / ".join(supervisor)
                     display_name = " / ".join(entered_name)
@@ -153,7 +163,15 @@ if mushrif_file and admin_file:
                     if entered_name == admin_name:
                         status = "✅ صحيح"
                     else:
-                        status = f"⚠️ خطأ في الاسم: أدخل '{entered_name}' والصحيح '{admin_name}'"
+                        status = f"⚠️ خطأ في الاسم عند المشرف {supervisor}"
+                        error_details.append({
+                            "المشرف": supervisor,
+                            "المعلم": admin_name,
+                            "الرقم": admin_id,
+                            "الاسم المدخل": entered_name,
+                            "الاسم الصحيح": admin_name,
+                            "نوع الخطأ": "خطأ في الاسم"
+                        })
                     display_supervisor = supervisor
                     display_name = entered_name
                 
@@ -172,7 +190,8 @@ if mushrif_file and admin_file:
                 found_suggestion = False
                 best_match_id = None
                 best_match_name = None
-                best_sim = 0
+                best_id_sim = 0
+                best_name_sim = 0
                 
                 for hr_id, hr_name in hr_map.items():
                     if hr_id != admin_id:
@@ -181,8 +200,9 @@ if mushrif_file and admin_file:
                         
                         # إذا كان الاسم مشابهاً جداً، نعتبره اقتراح تصحيح
                         if name_sim > 0.85 and id_sim > 0.6:
-                            if id_sim > best_sim:
-                                best_sim = id_sim
+                            if id_sim > best_id_sim:
+                                best_id_sim = id_sim
+                                best_name_sim = name_sim
                                 best_match_id = hr_id
                                 best_match_name = hr_name
                                 found_suggestion = True
@@ -194,7 +214,8 @@ if mushrif_file and admin_file:
                         "🆔 الرقم (المدخل)": admin_id,
                         "🔍 الرقم المقترح": best_match_id,
                         "✅ الاسم الصحيح في HR": best_match_name,
-                        "📊 نسبة التشابه": f"{best_sim:.0%}"
+                        "📊 تشابه الرقم": f"{best_id_sim:.0%}",
+                        "📊 تشابه الاسم": f"{best_name_sim:.0%}"
                     })
                 else:
                     # معلم غير موجود تماماً
@@ -205,58 +226,232 @@ if mushrif_file and admin_file:
                     })
         
         # ============================================================
+        # إنشاء DataFrames
+        # ============================================================
+        results_df = pd.DataFrame(results) if results else pd.DataFrame()
+        suggestions_df = pd.DataFrame(suggestions) if suggestions else pd.DataFrame()
+        not_found_df = pd.DataFrame(not_found) if not_found else pd.DataFrame()
+        error_details_df = pd.DataFrame(error_details) if error_details else pd.DataFrame()
+        
+        # ملخص الأخطاء لكل مشرف
+        if not error_details_df.empty:
+            supervisor_error_summary = error_details_df.groupby("المشرف").size().reset_index()
+            supervisor_error_summary.columns = ["المشرف", "عدد الأخطاء"]
+        else:
+            supervisor_error_summary = pd.DataFrame()
+        
+        # ============================================================
         # عرض النتائج
         # ============================================================
         
-        # 1. المعلمين الموجودين
-        if results:
+        # إحصائيات سريعة
+        col1, col2, col3, col4, col5 = st.columns(5)
+        col1.metric("📊 إجمالي المعلمين في HR", len(admin_df))
+        col2.metric("✅ موجودون", len(results_df))
+        col3.metric("🔍 اقتراحات تصحيح", len(suggestions_df))
+        col4.metric("❌ غير موجودين", len(not_found_df))
+        col5.metric("⚠️ أخطاء في الاسم", len(error_details_df))
+        
+        st.markdown("---")
+        
+        # ============================================================
+        # تبويبات العرض
+        # ============================================================
+        
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+            "📊 الموجودون",
+            "🔍 اقتراحات التصحيح",
+            "❌ غير الموجودين",
+            "⚠️ أخطاء المشرفين",
+            "📈 المخططات",
+            "📥 تحميل التقارير"
+        ])
+        
+        with tab1:
             st.subheader("📊 المعلمين الموجودين في الإدارة")
-            merged = pd.DataFrame(results)
-            st.dataframe(merged, use_container_width=True, height=400)
-            
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("📊 إجمالي الموجودين", len(merged))
-            matched = len(merged[merged['⭐ التقييم'].notna()])
-            col2.metric("✅ تم تحديث", f"{matched} من {len(merged)}")
-            errors = len(merged[merged['📌 الحالة'].str.contains("خطأ", na=False)])
-            col3.metric("⚠️ أخطاء في الاسم", errors)
-            col4.metric("✅ صحيح", len(merged[merged['📌 الحالة'] == "✅ صحيح"]))
+            if not results_df.empty:
+                st.dataframe(results_df, use_container_width=True, height=400)
+                
+                # إحصائيات الموجودين
+                col1, col2, col3 = st.columns(3)
+                col1.metric("✅ صحيح", len(results_df[results_df['📌 الحالة'] == "✅ صحيح"]))
+                col2.metric("⚠️ خطأ في الاسم", len(results_df[results_df['📌 الحالة'].str.contains("خطأ", na=False)]))
+                col3.metric("⭐ متوسط التقييم", 
+                           f"{pd.to_numeric(results_df['⭐ التقييم'], errors='coerce').mean():.1f}" 
+                           if not results_df.empty else "0")
+            else:
+                st.info("لا توجد بيانات")
         
-        # 2. اقتراحات التصحيح
-        if suggestions:
+        with tab2:
             st.subheader("🔍 اقتراحات تصحيح رقم الهوية")
-            st.info("📌 هذه الحالات قد يكون فيها خطأ إملائي في رقم واحد أو اثنين، والاسم متطابق")
-            suggestions_df = pd.DataFrame(suggestions)
-            st.dataframe(suggestions_df, use_container_width=True)
+            st.info("📌 هذه الحالات قد يكون فيها خطأ إملائي في رقم واحد أو اثنين، والاسم متطابق تقريباً")
+            if not suggestions_df.empty:
+                st.dataframe(suggestions_df, use_container_width=True)
+                st.warning(f"⚠️ {len(suggestions_df)} حالة تحتاج إلى مراجعة وتصحيح الرقم")
+            else:
+                st.success("✅ لا توجد اقتراحات للتصحيح")
         
-        # 3. المعلمين غير الموجودين
-        if not_found:
+        with tab3:
             st.subheader("❌ المعلمين غير الموجودين في الإدارة")
-            st.warning(f"⚠️ {len(not_found)} معلم غير موجود في قاعدة البيانات")
-            not_found_df = pd.DataFrame(not_found)
-            st.dataframe(not_found_df, use_container_width=True)
+            if not not_found_df.empty:
+                st.warning(f"⚠️ {len(not_found_df)} معلم غير موجود في قاعدة البيانات")
+                st.dataframe(not_found_df, use_container_width=True)
+                st.info("📌 هذه المعلمين يحتاجون إلى إضافتهم في نظام الإدارة")
+            else:
+                st.success("✅ جميع المعلمين موجودون في قاعدة البيانات")
+        
+        with tab4:
+            st.subheader("⚠️ تفاصيل أخطاء المشرفين")
+            if not error_details_df.empty:
+                st.dataframe(error_details_df, use_container_width=True)
+                
+                # ملخص الأخطاء لكل مشرف
+                st.subheader("📊 ملخص الأخطاء لكل مشرف")
+                st.dataframe(supervisor_error_summary, use_container_width=True)
+                
+                # رسم بياني لأخطاء المشرفين
+                if not supervisor_error_summary.empty:
+                    st.subheader("📊 رسم بياني لأخطاء المشرفين")
+                    st.bar_chart(supervisor_error_summary.set_index("المشرف"))
+            else:
+                st.success("✅ لا توجد أخطاء من المشرفين")
+        
+        with tab5:
+            st.subheader("📈 المخططات البيانية")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # توزيع الحالات
+                if not results_df.empty:
+                    status_counts = results_df['📌 الحالة'].value_counts().reset_index()
+                    status_counts.columns = ['الحالة', 'العدد']
+                    st.subheader("📊 توزيع حالات الموجودين")
+                    st.dataframe(status_counts, use_container_width=True)
+                    st.bar_chart(status_counts.set_index('الحالة'))
+            
+            with col2:
+                # توزيع التقييمات (إن كانت رقمية)
+                if not results_df.empty:
+                    numeric_scores = pd.to_numeric(results_df['⭐ التقييم'], errors='coerce')
+                    if not numeric_scores.dropna().empty:
+                        st.subheader("📊 توزيع التقييمات")
+                        score_dist = numeric_scores.value_counts().sort_index().reset_index()
+                        score_dist.columns = ['التقييم', 'العدد']
+                        st.dataframe(score_dist.head(10), use_container_width=True)
+                        st.bar_chart(score_dist.set_index('التقييم').head(10))
+            
+            # إحصائيات عامة
+            st.subheader("📊 إحصائيات عامة")
+            stats_data = {
+                "الفئة": ["الموجودون", "اقتراحات تصحيح", "غير موجودين", "أخطاء في الاسم"],
+                "العدد": [len(results_df), len(suggestions_df), len(not_found_df), len(error_details_df)]
+            }
+            stats_df = pd.DataFrame(stats_data)
+            st.dataframe(stats_df, use_container_width=True)
+            st.bar_chart(stats_df.set_index("الفئة"))
+        
+        with tab6:
+            st.subheader("📥 تحميل التقارير")
+            
+            output_buffer = io.BytesIO()
+            with pd.ExcelWriter(output_buffer, engine='openpyxl') as writer:
+                if not results_df.empty:
+                    results_df.to_excel(writer, sheet_name="الموجودين", index=False)
+                if not suggestions_df.empty:
+                    suggestions_df.to_excel(writer, sheet_name="اقتراحات_تصحيح", index=False)
+                if not not_found_df.empty:
+                    not_found_df.to_excel(writer, sheet_name="غير_الموجودين", index=False)
+                if not error_details_df.empty:
+                    error_details_df.to_excel(writer, sheet_name="أخطاء_المشرفين", index=False)
+                if not supervisor_error_summary.empty:
+                    supervisor_error_summary.to_excel(writer, sheet_name="ملخص_أخطاء_المشرفين", index=False)
+            output_buffer.seek(0)
+            
+            st.download_button(
+                label="📥 تحميل التقرير الكامل (Excel)",
+                data=output_buffer,
+                file_name="تقرير_المعلمين_الكامل.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            
+            # تحميل كل ملف على حدة
+            st.subheader("📥 تحميل ملفات منفصلة")
+            
+            if not results_df.empty:
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    results_df.to_excel(writer, sheet_name="الموجودين", index=False)
+                buffer.seek(0)
+                st.download_button(
+                    label="📥 تحميل الموجودين",
+                    data=buffer,
+                    file_name="الموجودين.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            
+            if not suggestions_df.empty:
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    suggestions_df.to_excel(writer, sheet_name="اقتراحات_تصحيح", index=False)
+                buffer.seek(0)
+                st.download_button(
+                    label="📥 تحميل اقتراحات التصحيح",
+                    data=buffer,
+                    file_name="اقتراحات_تصحيح.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            
+            if not not_found_df.empty:
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    not_found_df.to_excel(writer, sheet_name="غير_الموجودين", index=False)
+                buffer.seek(0)
+                st.download_button(
+                    label="📥 تحميل غير الموجودين",
+                    data=buffer,
+                    file_name="غير_الموجودين.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            
+            if not error_details_df.empty:
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    error_details_df.to_excel(writer, sheet_name="أخطاء_المشرفين", index=False)
+                buffer.seek(0)
+                st.download_button(
+                    label="📥 تحميل أخطاء المشرفين",
+                    data=buffer,
+                    file_name="أخطاء_المشرفين.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
         
         # ============================================================
-        # تحميل الملفات
+        # خيارات التصفية (في الأسفل)
         # ============================================================
         
-        output_buffer = io.BytesIO()
-        with pd.ExcelWriter(output_buffer, engine='openpyxl') as writer:
-            if results:
-                merged.to_excel(writer, sheet_name="الموجودين", index=False)
-            if suggestions:
-                suggestions_df.to_excel(writer, sheet_name="اقتراحات_تصحيح", index=False)
-            if not_found:
-                not_found_df.to_excel(writer, sheet_name="غير_الموجودين", index=False)
-        output_buffer.seek(0)
-        
-        st.subheader("⬇️ تحميل التقرير الكامل")
-        st.download_button(
-            label="📥 تحميل ملف Excel",
-            data=output_buffer,
-            file_name="تقرير_المعلمين.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        with st.expander("🎯 خيارات التصفية والبحث"):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if not results_df.empty:
+                    if st.button("عرض المعلمين الذين لديهم مشاكل فقط"):
+                        filtered = results_df[results_df['📌 الحالة'].str.contains("خطأ", na=False)].copy()
+                        if filtered.empty:
+                            st.info("✅ لا توجد مشاكل")
+                        else:
+                            st.dataframe(filtered, use_container_width=True)
+            
+            with col2:
+                supervisors_list = mushrif_df["اسم المشرف"].dropna().unique().tolist()
+                if supervisors_list:
+                    selected_supervisor = st.selectbox("اختر اسم المشرف:", supervisors_list)
+                    if selected_supervisor:
+                        filtered_by_supervisor = results_df[results_df['👨‍🏫 المشرف'].str.contains(selected_supervisor, na=False)]
+                        if filtered_by_supervisor.empty:
+                            st.info(f"لا توجد بيانات للمدرسين تحت إشراف {selected_supervisor}")
+                        else:
+                            st.dataframe(filtered_by_supervisor, use_container_width=True)
 
 else:
     st.info("👈 يرجى رفع ملف المشرفين وملف الشؤون الإدارية للبدء")
@@ -269,3 +464,6 @@ else:
     **ملف الشؤون الإدارية (HR):**
     - يحتوي على أعمدة: `الاسم`, `رقم الهوية`
     """)
+
+st.markdown("---")
+st.caption("📌 نظام دمج تقييمات المعلمين - الإصدار الذكي v3.0")
