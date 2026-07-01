@@ -490,6 +490,25 @@ if mushrif_file and admin_file:
                 export_df = export_df.drop(columns=["💬 تنبيه الواتساب"])
             export_df.to_excel(writer, sheet_name="النتائج_المصفاة", index=False)
         filtered_buffer.seek(0)
+
+
+        # 📱 [ميزة مضافة] ميزة التنبيه المجمع الذكي للمشرف المحدد
+    if selected_sup != "الكل" and not teacher_all_errors_df.empty:
+        sup_errors = teacher_all_errors_df[teacher_all_errors_df["المشرف المسؤول"] == selected_sup]
+        if not sup_errors.empty:
+            st.markdown(f"##### 📱 التنبيه المجمع والذكي للمشرف: ({selected_sup})")
+            msg_lines = [f"السلام عليكم أستاذ {selected_sup}، يرجى التكرم بتعديل بيانات المعلمين التالية في ملف التقييم الخاص بك لوجود بعض الملاحظات:"]
+            for idx, row in enumerate(sup_errors.to_dict(orient='records'), 1):
+                msg_lines.append(f"{idx}- {row['اسم المعلم (من الإدارة)']} ⬅️ ({row['🚨 طبيعة الخطأ']})")
+            msg_lines.append("شاكرين ومقدرين حسن تعاونكم وجهودكم المبذولة.")
+            
+            full_msg = "\n".join(msg_lines)
+            encoded_msg = urllib.parse.quote(full_msg)
+            whatsapp_url = f"https://wa.me/?text={encoded_msg}"
+            
+            st.link_button(f"📱 إرسال كشف الأخطاء المجمع عبر واتساب ({len(sup_errors)} ملاحظات)", whatsapp_url, use_container_width=True)
+            st.markdown("---")
+
         
         if show_problems_only:
             btn_label = f"📥 (Excel) تحميل ملف مشاكل المشرف: {selected_sup}"
